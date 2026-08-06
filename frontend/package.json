@@ -41,14 +41,5 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"
-  },
-  "pnpm": {
-    "overrides": {
-      "caniuse-lite": "1.0.30001806",
-      "electron-to-chromium": "1.5.401",
-      "node-releases": "2.0.52",
-      "postcss": "8.5.25",
-      "vite": "8.2.0"
-    }
   }
 }
