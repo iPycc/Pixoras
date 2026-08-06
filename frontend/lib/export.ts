@@ -113,8 +113,7 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
     .join(" · ")
   const creditX = showReport ? legendX : boardX
   const credit = `<g class="credit" transform="translate(${creditX} ${height - 36})">
-      <rect width="22" height="22" rx="6" fill="#d3336c"/>
-      ${brandDots()}
+      ${brandMark()}
       <text x="30" y="15" class="signature">${escapeXml(creditText)}</text>
     </g>`
   const legend = showReport
@@ -272,15 +271,26 @@ function darkText(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 155
 }
 
-function brandDots() {
-  const points = [6.5, 11, 15.5]
-  return points
-    .flatMap((y) =>
-      points.map(
-        (x) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#fff" opacity=".92"/>`
-      )
-    )
-    .join("")
+function brandMark() {
+  return `<g class="pixoras-brand-mark" transform="scale(0.34375)" aria-label="Pixoras logo">
+      <rect width="64" height="64" rx="16" fill="#9F2F4F"/>
+      <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#7B1F3C" stroke-opacity=".34" stroke-width="2"/>
+      <g fill="#FFF3E8">
+        <circle cx="17" cy="12" r="5"/><circle cx="17" cy="22" r="5"/><circle cx="17" cy="32" r="5"/><circle cx="17" cy="42" r="5"/><circle cx="17" cy="52" r="5"/>
+      </g>
+      <g fill="#FFBE55">
+        <circle cx="27" cy="12" r="5"/><circle cx="37" cy="12" r="5"/>
+      </g>
+      <g fill="#FF8A66">
+        <circle cx="43" cy="22" r="5"/><circle cx="37" cy="32" r="5"/><circle cx="27" cy="32" r="5"/>
+      </g>
+      <g fill="#9F2F4F">
+        <circle cx="17" cy="12" r="1.45"/><circle cx="27" cy="12" r="1.45"/><circle cx="37" cy="12" r="1.45"/><circle cx="17" cy="22" r="1.45"/><circle cx="43" cy="22" r="1.45"/><circle cx="17" cy="32" r="1.45"/><circle cx="27" cy="32" r="1.45"/><circle cx="37" cy="32" r="1.45"/><circle cx="17" cy="42" r="1.45"/><circle cx="17" cy="52" r="1.45"/>
+      </g>
+      <g fill="#FFFFFF" fill-opacity=".5">
+        <circle cx="15.5" cy="10.5" r=".9"/><circle cx="25.5" cy="10.5" r=".9"/><circle cx="35.5" cy="10.5" r=".9"/><circle cx="15.5" cy="20.5" r=".9"/><circle cx="41.5" cy="20.5" r=".9"/><circle cx="15.5" cy="30.5" r=".9"/><circle cx="25.5" cy="30.5" r=".9"/><circle cx="35.5" cy="30.5" r=".9"/><circle cx="15.5" cy="40.5" r=".9"/><circle cx="15.5" cy="50.5" r=".9"/>
+      </g>
+    </g>`
 }
 
 function escapeXml(value: string) {

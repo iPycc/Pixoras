@@ -45,6 +45,11 @@ describe("exports", () => {
     expect(svg).toContain("小猫图纸")
     expect(svg).toContain("Pixoras")
     expect(svg).toContain("Designed by Pixoras")
+    expect(svg).toContain('class="pixoras-brand-mark"')
+    expect(svg).toContain('fill="#9F2F4F"')
+    expect(svg).toContain('fill="#FFBE55"')
+    expect(svg).toContain('fill="#FF8A66"')
+    expect(svg).not.toContain('fill="#d3336c"')
     expect(svg).toContain("粉色")
     expect(svg).toContain('class="pixoras-svg-report"')
     const stylesheet = svg.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? ""
