@@ -155,7 +155,7 @@ export function ProjectsPage() {
               导入项目
             </Button>
             <Button
-              render={<Link href="/p/new" />}
+              render={<Link href="/p/?id=new" />}
               nativeButton={false}
               size="lg"
             >
@@ -206,7 +206,7 @@ export function ProjectsPage() {
             </EmptyHeader>
             <EmptyContent>
               <Button
-                render={<Link href="/p/new" />}
+                render={<Link href="/p/?id=new" />}
                 nativeButton={false}
                 size="lg"
               >
@@ -325,7 +325,7 @@ function ProjectsHeader() {
             首页
           </Button>
           <Button
-            render={<Link href="/p/new" />}
+            render={<Link href="/p/?id=new" />}
             nativeButton={false}
             variant="ghost"
             size="lg"
@@ -361,7 +361,7 @@ function ProjectsHeader() {
           </Button>
           <ThemeButton />
           <Button
-            render={<Link href="/p/new" />}
+            render={<Link href="/p/?id=new" />}
             nativeButton={false}
             size="lg"
             className="rounded-full sm:hidden"
@@ -398,7 +398,7 @@ function ProjectCard({
   return (
     <article className="group overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/25">
       <Link
-        href={`/p/${project.id}`}
+        href={`/p/?id=${encodeURIComponent(project.id)}`}
         className="block bg-muted/40 p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         aria-label={`打开图纸：${project.name}`}
       >
@@ -412,7 +412,7 @@ function ProjectCard({
           <div className="min-w-0">
             <h3 className="truncate text-base font-semibold">
               <Link
-                href={`/p/${project.id}`}
+                href={`/p/?id=${encodeURIComponent(project.id)}`}
                 className="outline-none hover:text-primary focus-visible:text-primary"
               >
                 {project.name}
@@ -472,7 +472,7 @@ function ProjectCard({
             <span>{usedColors} 种颜色</span>
           </div>
           <Button
-            render={<Link href={`/p/${project.id}`} />}
+            render={<Link href={`/p/?id=${encodeURIComponent(project.id)}`} />}
             nativeButton={false}
             variant="outline"
           >

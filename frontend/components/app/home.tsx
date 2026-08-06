@@ -157,7 +157,7 @@ export function Home() {
               首页
             </Link>
             <Link
-              href="/p/new"
+              href="/p/?id=new"
               className={cn(
                 buttonVariants({ variant: "ghost", size: "lg" }),
                 "rounded-full"
@@ -188,7 +188,7 @@ export function Home() {
           <div className="flex items-center gap-1">
             <ThemeButton />
             <Link
-              href="/p/new"
+              href="/p/?id=new"
               className={cn(buttonVariants({ size: "lg" }), "rounded-full")}
             >
               开始制作
@@ -237,7 +237,7 @@ export function Home() {
                 style={{ "--home-delay": "280ms" } as React.CSSProperties}
               >
                 <Button
-                  render={<Link href="/p/new" />}
+                  render={<Link href="/p/?id=new" />}
                   nativeButton={false}
                   size="lg"
                 >
@@ -338,7 +338,7 @@ export function Home() {
               </p>
             </div>
             <Link
-              href="/p/new"
+              href="/p/?id=new"
               className={cn(buttonVariants({ size: "lg" }), "rounded-full")}
             >
               开始制作

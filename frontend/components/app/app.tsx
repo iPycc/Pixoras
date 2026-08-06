@@ -258,7 +258,7 @@ export function App({ id }: { id: string }) {
       await saveProject(project)
       activeProjectId.current = nextId
       setUpdatedAt(savedAt)
-      router.replace(`/p/${nextId}`)
+      router.replace(`/p/?id=${encodeURIComponent(nextId)}`)
     } catch (error) {
       const full =
         error instanceof DOMException && error.name === "QuotaExceededError"
@@ -311,7 +311,7 @@ export function App({ id }: { id: string }) {
     setUpdatedAt(0)
     setZoom(100)
     setBooting(false)
-    router.push("/p/new")
+    router.push("/p/?id=new")
   }
 
   const current = React.useMemo<Project | null>(() => {
