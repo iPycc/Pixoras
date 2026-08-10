@@ -23,6 +23,23 @@ const pattern: Pattern = {
   cells: Uint16Array.from([1, 0, 1, 1]),
 }
 
+const codeOnlyPattern: Pattern = {
+  width: 1,
+  height: 1,
+  colors: [
+    {
+      ...color,
+      id: "mard-c1",
+      brand: "MARD",
+      series: "Standard 221 2.6mm",
+      code: "C1",
+      zh: "C1",
+      en: "C1",
+    },
+  ],
+  cells: Uint16Array.from([1]),
+}
+
 const opts: ExportOpts = {
   mode: "report",
   scale: 2,
@@ -47,6 +64,12 @@ describe("exports", () => {
     expect(svg).toContain("Designed by Pixoras")
     expect(svg).toContain('class="pixoras-brand-header"')
     expect(svg).toContain('class="brand-name">Pixoras</text>')
+    expect(svg).toContain(
+      '<text x="136" y="25" class="brand-name-zh">拼好豆</text>'
+    )
+    expect(svg).toContain(
+      ".brand-name-zh{font-size:16px;font-weight:600;fill:#241f1d}"
+    )
     expect(svg).toContain('class="pixoras-brand-mark"')
     expect(svg).toContain('fill="#9F2F4F"')
     expect(svg).toContain('fill="#FFBE55"')
@@ -69,6 +92,13 @@ describe("exports", () => {
 
   it("falls back to safe dimensions for invalid SVG input", () => {
     expect(svgDimensions("<svg />")).toEqual({ width: 1, height: 1 })
+  })
+
+  it("removes repeated color codes from the export legend", () => {
+    const svg = svgReport(codeOnlyPattern, opts, "MARD 图纸")
+    expect(svg).toContain('class="row">C1</text>')
+    expect(svg).toContain('class="subrow">MARD Standard 221 2.6mm</text>')
+    expect(svg).not.toContain("C1 · C1")
   })
 
   it("includes the Pixoras credit in pure pattern exports", () => {

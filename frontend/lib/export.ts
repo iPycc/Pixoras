@@ -1,4 +1,5 @@
 import { hexRgb } from "@/lib/color/lab"
+import { uniqueColorLabels } from "@/lib/color/label"
 import { total, usage } from "@/lib/pattern/edit"
 import type { ExportOpts, Pattern } from "@/types/pattern"
 
@@ -134,10 +135,20 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
             const row = index % legendRows
             const x = legendX + column * columnWidth
             const y = 194 + reportHeaderOffset + row * 50
+            const primaryLabels = uniqueColorLabels(
+              item.color.code,
+              item.color.zh
+            )
+            const allLabels = uniqueColorLabels(
+              item.color.code,
+              item.color.zh,
+              item.color.en
+            )
+            const secondaryLabel = allLabels[primaryLabels.length]
             return `<g>
             <rect x="${x}" y="${y - 16}" width="28" height="28" rx="5" fill="${item.color.hex}" stroke="#cfc8c4"/>
-            <text x="${x + 38}" y="${y - 5}" class="row">${escapeXml(item.color.code)} · ${escapeXml(item.color.zh)}</text>
-            <text x="${x + 38}" y="${y + 12}" class="subrow">${escapeXml(item.color.brand)} ${escapeXml(item.color.series)} · ${escapeXml(item.color.en)}</text>
+            <text x="${x + 38}" y="${y - 5}" class="row">${escapeXml(primaryLabels.join(" · "))}</text>
+            <text x="${x + 38}" y="${y + 12}" class="subrow">${escapeXml(`${item.color.brand} ${item.color.series}`)}${secondaryLabel ? ` · ${escapeXml(secondaryLabel)}` : ""}</text>
             <text x="${x + columnWidth - 14}" y="${y - 5}" text-anchor="end" class="count">${item.count} 颗</text>
             <text x="${x + columnWidth - 14}" y="${y + 12}" text-anchor="end" class="subrow">${(item.ratio * 100).toFixed(1)}%</text>
           </g>`
@@ -151,7 +162,7 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" class="pixoras-svg-report" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <style>
-      .pixoras-svg-report text{font-family:${FONT};font-size:10px;fill:#625a56}.pixoras-svg-report .grid path{stroke:#191716;stroke-opacity:.18;stroke-width:.7}.pixoras-svg-report .grid .board{stroke:#161311;stroke-opacity:.82;stroke-width:2}.pixoras-svg-report .code{font-weight:600}.pixoras-svg-report .dark-code{fill:#24201e}.pixoras-svg-report .light-code{fill:#fff}.pixoras-svg-report .brand-name{font-size:24px;font-weight:700;letter-spacing:-.4px;fill:#241f1d}.pixoras-svg-report .signature{font-size:11px;font-weight:600;letter-spacing:.3px;fill:#625a56}.pixoras-svg-report .title{font-size:28px;font-weight:700;fill:#241f1d}.pixoras-svg-report .heading{font-size:16px;font-weight:700;fill:#241f1d}.pixoras-svg-report .muted{font-size:13px;fill:#7b716d}.pixoras-svg-report .row{font-size:13px;fill:#342f2c}.pixoras-svg-report .subrow{font-size:9px;fill:#8b817c}.pixoras-svg-report .count{font-size:13px;font-weight:700;fill:#342f2c}.pixoras-svg-report .note{font-size:11px;fill:#8b817c}
+      .pixoras-svg-report text{font-family:${FONT};font-size:10px;fill:#625a56}.pixoras-svg-report .grid path{stroke:#191716;stroke-opacity:.18;stroke-width:.7}.pixoras-svg-report .grid .board{stroke:#161311;stroke-opacity:.82;stroke-width:2}.pixoras-svg-report .code{font-weight:600}.pixoras-svg-report .dark-code{fill:#24201e}.pixoras-svg-report .light-code{fill:#fff}.pixoras-svg-report .brand-name{font-size:24px;font-weight:700;letter-spacing:-.4px;fill:#241f1d}.pixoras-svg-report .brand-name-zh{font-size:16px;font-weight:600;fill:#241f1d}.pixoras-svg-report .signature{font-size:11px;font-weight:600;letter-spacing:.3px;fill:#625a56}.pixoras-svg-report .title{font-size:28px;font-weight:700;fill:#241f1d}.pixoras-svg-report .heading{font-size:16px;font-weight:700;fill:#241f1d}.pixoras-svg-report .muted{font-size:13px;fill:#7b716d}.pixoras-svg-report .row{font-size:13px;fill:#342f2c}.pixoras-svg-report .subrow{font-size:9px;fill:#8b817c}.pixoras-svg-report .count{font-size:13px;font-weight:700;fill:#342f2c}.pixoras-svg-report .note{font-size:11px;fill:#8b817c}
     </style>
     ${background}
     <g class="beads">${cells.join("")}</g>
@@ -315,9 +326,10 @@ function darkText(hex: string) {
 }
 
 function brandHeader(x: number, y: number) {
-  return `<g class="pixoras-brand-header" transform="translate(${x} ${y})" aria-label="Pixoras">
+  return `<g class="pixoras-brand-header" transform="translate(${x} ${y})" aria-label="Pixoras 拼好豆">
       ${brandMark(0.5)}
       <text x="44" y="26" class="brand-name">Pixoras</text>
+      <text x="136" y="25" class="brand-name-zh">拼好豆</text>
     </g>`
 }
 

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { uniqueColorLabels } from "@/lib/color/label"
 import { fill, paint, total } from "@/lib/pattern/edit"
 import type { BeadShape, Pattern, Tool } from "@/types/pattern"
 
@@ -49,6 +50,10 @@ export function Canvas({
   } | null>(null)
   const cell = Math.max(7, Math.min(64, Math.round(18 * (zoom / 100))))
   const pad = 30
+  const hoverColor = hover ? pattern.colors[hover.value - 1] : null
+  const hoverLabel = hoverColor
+    ? uniqueColorLabels(hoverColor.code, hoverColor.zh).join(" · ")
+    : ""
 
   React.useEffect(() => {
     const canvas = ref.current
@@ -270,7 +275,7 @@ export function Canvas({
         }}
         onPointerLeave={() => setHover(null)}
       />
-      {hover && (
+      {hover && hoverColor && (
         <div
           className="pointer-events-none fixed z-10 flex max-w-56 items-center gap-2 rounded-md border bg-popover px-2.5 py-2 text-popover-foreground shadow-md"
           style={{ left: hover.left, top: hover.top }}
@@ -278,16 +283,12 @@ export function Canvas({
         >
           <span
             className="size-5 shrink-0 rounded-sm border"
-            style={{ backgroundColor: pattern.colors[hover.value - 1].hex }}
+            style={{ backgroundColor: hoverColor.hex }}
           />
           <span className="min-w-0">
-            <strong className="block text-xs">
-              {pattern.colors[hover.value - 1].code} ·{" "}
-              {pattern.colors[hover.value - 1].zh}
-            </strong>
+            <strong className="block text-xs">{hoverLabel}</strong>
             <span className="block text-[10px] text-muted-foreground">
-              {pattern.colors[hover.value - 1].brand} · 第 {hover.x + 1} 列 /{" "}
-              {hover.y + 1} 行
+              {hoverColor.brand} · 第 {hover.x + 1} 列 / {hover.y + 1} 行
             </span>
           </span>
         </div>

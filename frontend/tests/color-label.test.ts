@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { beadColorDetails } from "@/lib/color/label"
+import { beadColorDetails, uniqueColorLabels } from "@/lib/color/label"
 
 describe("bead color labels", () => {
   it("hides all repeated labels for code-only MARD colors", () => {
@@ -17,5 +17,10 @@ describe("bead color labels", () => {
     expect(beadColorDetails({ code: "A01", zh: "白色", en: "White" })).toBe(
       "A01 · White"
     )
+  })
+
+  it("deduplicates the code and name used by canvas hover labels", () => {
+    expect(uniqueColorLabels("C1", "C1").join(" · ")).toBe("C1")
+    expect(uniqueColorLabels("A01", "白色").join(" · ")).toBe("A01 · 白色")
   })
 })

@@ -14,4 +14,14 @@ export function beadColorDetails(color: ColorLabel) {
     .join(" · ")
 }
 
+export function uniqueColorLabels(...values: string[]) {
+  const seen = new Set<string>()
+  return values.filter((value) => {
+    const key = normalize(value)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 const normalize = (value: string) => value.trim().toLowerCase()
