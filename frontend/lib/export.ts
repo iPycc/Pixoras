@@ -176,29 +176,68 @@ export async function savePng(
   opts: ExportOpts,
   name: string
 ) {
-  await document.fonts.ready
+  const { blob } = await renderPng(pattern, opts, name, { scale: opts.scale })
+  await save(blob, fileName(name, pattern, "png"))
+}
+
+export interface RenderPngOptions {
+  scale?: number
+  maxSide?: number
+}
+
+export interface RenderedPng {
+  blob: Blob
+  width: number
+  height: number
+}
+
+export async function renderPng(
+  pattern: Pattern,
+  opts: ExportOpts,
+  name: string,
+  render: RenderPngOptions = {}
+): Promise<RenderedPng> {
+  await document.fonts?.ready
   const svg = svgReport(pattern, opts, name)
   const source = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }))
   try {
     const image = new Image()
     image.src = source
     await image.decode()
+    const requestedScale = Math.max(0.1, render.scale ?? 1)
+    const limitedScale = render.maxSide
+      ? Math.min(
+          requestedScale,
+          render.maxSide / Math.max(image.naturalWidth, image.naturalHeight)
+        )
+      : requestedScale
+    const width = Math.max(1, Math.round(image.naturalWidth * limitedScale))
+    const height = Math.max(1, Math.round(image.naturalHeight * limitedScale))
     const canvas = document.createElement("canvas")
-    canvas.width = image.naturalWidth * opts.scale
-    canvas.height = image.naturalHeight * opts.scale
+    canvas.width = width
+    canvas.height = height
     const context = canvas.getContext("2d")
     if (!context) throw new Error("无法创建导出画布")
-    context.scale(opts.scale, opts.scale)
-    context.drawImage(image, 0, 0)
+    context.drawImage(image, 0, 0, width, height)
     const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
         (value) => (value ? resolve(value) : reject(new Error("PNG 生成失败"))),
         "image/png"
       )
     )
-    await save(blob, fileName(name, pattern, "png"))
+    return { blob, width, height }
   } finally {
     URL.revokeObjectURL(source)
+  }
+}
+
+export function svgDimensions(svg: string) {
+  const viewBox = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
+  const width = Number(viewBox?.[1])
+  const height = Number(viewBox?.[2])
+  return {
+    width: Number.isFinite(width) && width > 0 ? width : 1,
+    height: Number.isFinite(height) && height > 0 ? height : 1,
   }
 }
 

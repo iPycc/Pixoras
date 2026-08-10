@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { csvText, svgReport } from "@/lib/export"
+import { csvText, svgDimensions, svgReport } from "@/lib/export"
 import type { BeadColor } from "@/types/bead"
 import type { ExportOpts, Pattern } from "@/types/pattern"
 
@@ -62,6 +62,11 @@ describe("exports", () => {
     const beads = svg.match(/<g class="beads">([\s\S]*?)<\/g>/)?.[1] ?? ""
     expect(beads.match(/<circle /g)).toHaveLength(3)
     expect(svg).toContain(">P11</text>")
+    expect(svgDimensions(svg)).toEqual({ width: 566, height: 308 })
+  })
+
+  it("falls back to safe dimensions for invalid SVG input", () => {
+    expect(svgDimensions("<svg />")).toEqual({ width: 1, height: 1 })
   })
 
   it("includes the Pixoras credit in pure pattern exports", () => {
