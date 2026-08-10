@@ -310,27 +310,30 @@ export function Settings({
             </Field>
           ))}
 
-        <div className="border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">
-          <p>
-            {selectedPalette.name} · {selectedPalette.colors.length} 个可参考色
-          </p>
-          {selectedPalette.advertisedColors &&
-            selectedPalette.advertisedColors !==
-              selectedPalette.colors.length && (
-              <p>
-                品牌公布 {selectedPalette.advertisedColors}{" "}
-                色；特殊材质中缺少可计算 RGB 的颜色不会参与自动匹配。
-              </p>
-            )}
-          <a
-            href={selectedPalette.source.url}
-            target="_blank"
-            rel="noreferrer"
-            className="underline underline-offset-2 hover:text-foreground"
-          >
-            {selectedPalette.source.label}
-          </a>
-        </div>
+        {selectedBrand.id !== "mard" && (
+          <div className="border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">
+            <p>
+              {selectedPalette.name} · {selectedPalette.colors.length}{" "}
+              个可参考色
+            </p>
+            {selectedPalette.advertisedColors &&
+              selectedPalette.advertisedColors !==
+                selectedPalette.colors.length && (
+                <p>
+                  品牌公布 {selectedPalette.advertisedColors}{" "}
+                  色；特殊材质中缺少可计算 RGB 的颜色不会参与自动匹配。
+                </p>
+              )}
+            <a
+              href={selectedPalette.source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              {selectedPalette.source.label}
+            </a>
+          </div>
+        )}
       </FieldGroup>
 
       {sourceMode === "image" && (
