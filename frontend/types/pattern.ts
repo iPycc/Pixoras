@@ -12,6 +12,7 @@ export interface Settings {
   alpha: number
   dither: boolean
   subjectOnly: boolean
+  subjectAutoFit: boolean
   subjectThreshold: number
   removeWhite: boolean
   background: `#${string}`
@@ -65,6 +66,7 @@ export const defaults: Settings = {
   alpha: 16,
   dither: false,
   subjectOnly: false,
+  subjectAutoFit: false,
   subjectThreshold: 50,
   removeWhite: false,
   background: "#FFFFFF",

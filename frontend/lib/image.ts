@@ -37,7 +37,9 @@ export async function readImage(
   if (!context) throw new Error("当前浏览器无法创建图像画布")
 
   const focus = subjectMask
-    ? subjectBounds(subjectMask, settings.subjectThreshold)
+    ? settings.subjectAutoFit
+      ? subjectBounds(subjectMask, settings.subjectThreshold)
+      : null
     : null
   drawTransformed(
     context,
@@ -61,7 +63,10 @@ export async function readImage(
     )
   }
   close(source)
-  return alphaSample(rendered, settings.width, settings.height)
+  const sampled = alphaSample(rendered, settings.width, settings.height)
+  return subjectMask && !settings.subjectAutoFit
+    ? cropTransparent(sampled, settings.alpha)
+    : sampled
 }
 
 export async function imageSize(file: File) {
@@ -102,6 +107,67 @@ function alphaSample(source: ImageData, width: number, height: number) {
       }
       output.data[target + 3] = Math.round((alpha / area) * 255)
     }
+  }
+  return output
+}
+
+export function alphaBounds(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  minimumAlpha: number
+) {
+  if (width <= 0 || height <= 0 || data.length < width * height * 4)
+    return null
+
+  const threshold = Math.max(1, Math.min(255, minimumAlpha))
+  let minX = width
+  let minY = height
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] < threshold) continue
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+  if (maxX < minX || maxY < minY) return null
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  }
+}
+
+function cropTransparent(source: ImageData, minimumAlpha: number) {
+  const bounds = alphaBounds(
+    source.data,
+    source.width,
+    source.height,
+    minimumAlpha
+  )
+  if (
+    !bounds ||
+    (bounds.x === 0 &&
+      bounds.y === 0 &&
+      bounds.width === source.width &&
+      bounds.height === source.height)
+  ) {
+    return source
+  }
+
+  const output = new ImageData(bounds.width, bounds.height)
+  for (let y = 0; y < bounds.height; y++) {
+    const sourceStart = ((bounds.y + y) * source.width + bounds.x) * 4
+    const sourceEnd = sourceStart + bounds.width * 4
+    output.data.set(
+      source.data.subarray(sourceStart, sourceEnd),
+      y * bounds.width * 4
+    )
   }
   return output
 }

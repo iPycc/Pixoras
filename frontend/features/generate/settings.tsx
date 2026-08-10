@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/collapsible"
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -72,6 +73,8 @@ export function Settings({
 }: Props) {
   const [advanced, setAdvanced] = React.useState(false)
   const nameId = React.useId()
+  const subjectOnlyId = React.useId()
+  const subjectAutoFitId = React.useId()
   const patch = (next: Partial<Values>) => onChange({ ...value, ...next })
   const slider = (next: number | readonly number[]) =>
     Array.isArray(next) ? next[0] : next
@@ -318,6 +321,51 @@ export function Settings({
         <>
           <Separator />
 
+          <FieldGroup>
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor={subjectOnlyId}>仅保留图片主体</FieldLabel>
+                <FieldDescription>
+                  自动识别主体并去除背景；AI 在当前设备运行，不上传图片。
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id={subjectOnlyId}
+                checked={value.subjectOnly}
+                onCheckedChange={(subjectOnly) =>
+                  patch({
+                    subjectOnly,
+                    removeWhite: subjectOnly ? false : value.removeWhite,
+                    scale: subjectOnly
+                      ? value.scale
+                      : Math.max(100, value.scale),
+                  })
+                }
+              />
+            </Field>
+            {value.subjectOnly && (
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor={subjectAutoFitId}>
+                    裁切后自动放大
+                  </FieldLabel>
+                  <FieldDescription>
+                    开启后主体会居中放大到当前宽高；关闭后保留当前大小，只裁掉外围空白，图纸宽高自动缩小。
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id={subjectAutoFitId}
+                  checked={value.subjectAutoFit}
+                  onCheckedChange={(subjectAutoFit) =>
+                    patch({ subjectAutoFit })
+                  }
+                />
+              </Field>
+            )}
+          </FieldGroup>
+
+          <Separator />
+
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium">图片方向</span>
@@ -413,27 +461,6 @@ export function Settings({
                   <Switch
                     checked={value.dither}
                     onCheckedChange={(dither) => patch({ dither })}
-                  />
-                </Field>
-                <Field orientation="horizontal">
-                  <div className="flex flex-col gap-1">
-                    <FieldTitle>仅保留图片主体</FieldTitle>
-                    <FieldDescription>
-                      自动识别边界并按图纸宽高居中适配；AI
-                      在当前设备运行，不上传图片。
-                    </FieldDescription>
-                  </div>
-                  <Switch
-                    checked={value.subjectOnly}
-                    onCheckedChange={(subjectOnly) =>
-                      patch({
-                        subjectOnly,
-                        removeWhite: subjectOnly ? false : value.removeWhite,
-                        scale: subjectOnly
-                          ? value.scale
-                          : Math.max(100, value.scale),
-                      })
-                    }
                   />
                 </Field>
                 {value.subjectOnly && (
