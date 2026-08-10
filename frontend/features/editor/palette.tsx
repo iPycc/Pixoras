@@ -18,6 +18,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { beadColorDetails } from "@/lib/color/label"
 import { total, usage } from "@/lib/pattern/edit"
 import { cn } from "@/lib/utils"
 import type { BeadColor } from "@/types/bead"
@@ -77,26 +78,36 @@ export function Palette({ pattern, selected, onSelect, onHighlight, onAdd, onRep
       <Separator />
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-3">
-          {colors.map(({ color, index }) => (
-            <Button
-              key={color.id}
-              variant={selected === index ? "secondary" : "ghost"}
-              size="lg"
-              className="h-auto w-full justify-start py-2"
-              onClick={() => onSelect(index)}
-              onMouseEnter={() => counts.has(index) && onHighlight(index)}
-              onMouseLeave={() => onHighlight(null)}
-            >
-              <span className="size-5 shrink-0 rounded-full border" style={{ backgroundColor: color.hex }} />
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block truncate">{color.zh}</span>
-                <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                  {color.code} · {color.en}
+          {colors.map(({ color, index }) => {
+            const details = beadColorDetails(color)
+            return (
+              <Button
+                key={color.id}
+                variant={selected === index ? "secondary" : "ghost"}
+                size="lg"
+                className="h-auto w-full justify-start py-2"
+                onClick={() => onSelect(index)}
+                onMouseEnter={() => counts.has(index) && onHighlight(index)}
+                onMouseLeave={() => onHighlight(null)}
+              >
+                <span
+                  className="size-5 shrink-0 rounded-full border"
+                  style={{ backgroundColor: color.hex }}
+                />
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block truncate">{color.zh}</span>
+                  {details && (
+                    <span className="block truncate text-[10px] font-normal text-muted-foreground">
+                      {details}
+                    </span>
+                  )}
                 </span>
-              </span>
-              {counts.has(index) && <Badge variant="outline">{counts.get(index)}</Badge>}
-            </Button>
-          ))}
+                {counts.has(index) && (
+                  <Badge variant="outline">{counts.get(index)}</Badge>
+                )}
+              </Button>
+            )
+          })}
         </div>
       </ScrollArea>
       <Separator />
