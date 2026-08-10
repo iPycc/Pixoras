@@ -124,6 +124,22 @@ export function Settings({
 
       <Separator />
 
+      <Button size="lg" disabled={!canGenerate || loading} onClick={onGenerate}>
+        {loading && (
+          <HugeiconsIcon
+            icon={Loading03Icon}
+            strokeWidth={2}
+            data-icon="inline-start"
+            className="animate-spin"
+          />
+        )}
+        {loading
+          ? "正在生成…"
+          : sourceMode === "image"
+            ? "应用生成设置"
+            : "应用图纸设置"}
+      </Button>
+
       <p className="text-xs font-medium">生成设置</p>
 
       <FieldGroup>
@@ -529,21 +545,6 @@ export function Settings({
         </>
       )}
 
-      <Button size="lg" disabled={!canGenerate || loading} onClick={onGenerate}>
-        {loading && (
-          <HugeiconsIcon
-            icon={Loading03Icon}
-            strokeWidth={2}
-            data-icon="inline-start"
-            className="animate-spin"
-          />
-        )}
-        {loading
-          ? "正在生成…"
-          : sourceMode === "image"
-            ? "应用生成设置"
-            : "应用图纸设置"}
-      </Button>
       <p className="text-xs leading-5 text-muted-foreground">
         色卡为屏幕近似值，实际制作前请与实物豆色核对。
       </p>
