@@ -13,6 +13,23 @@ export interface SubjectBounds {
   height: number
 }
 
+export interface SubjectAnalysis {
+  hasSubject: boolean
+  componentCount: number
+  foregroundRatio: number
+  bounds: SubjectBounds | null
+  recommendedSize: 58 | 87 | 116
+}
+
+interface MaskComponent {
+  weight: number
+  pixels: number
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
 const INPUT_SIZE = 320
 let sessionPromise: Promise<Ort.InferenceSession> | null = null
 
@@ -94,20 +111,144 @@ export function subjectBounds(
   mask: SubjectMask,
   thresholdPercent: number
 ): SubjectBounds | null {
+  const selected = subjectComponents(mask, thresholdPercent)
+  if (selected.length === 0) return null
+  let minX = mask.width
+  let minY = mask.height
+  let maxX = -1
+  let maxY = -1
+  for (const component of selected) {
+    minX = Math.min(minX, component.minX)
+    minY = Math.min(minY, component.minY)
+    maxX = Math.max(maxX, component.maxX)
+    maxY = Math.max(maxY, component.maxY)
+  }
+
+  // Keep one inference pixel around the matte so feathered edge pixels are not clipped.
+  minX = Math.max(0, minX - 1)
+  minY = Math.max(0, minY - 1)
+  maxX = Math.min(mask.width - 1, maxX + 1)
+  maxY = Math.min(mask.height - 1, maxY + 1)
+  return {
+    x: minX / mask.width,
+    y: minY / mask.height,
+    width: (maxX - minX + 1) / mask.width,
+    height: (maxY - minY + 1) / mask.height,
+  }
+}
+
+export function analyzeSubject(
+  mask: SubjectMask,
+  thresholdPercent = 50
+): SubjectAnalysis {
+  const components = subjectComponents(mask, thresholdPercent)
+  const bounds = subjectBounds(mask, thresholdPercent)
+  const pixels = components.reduce(
+    (total, component) => total + component.pixels,
+    0
+  )
+  const foregroundRatio =
+    mask.width > 0 && mask.height > 0 ? pixels / (mask.width * mask.height) : 0
+  const boundsArea = bounds ? bounds.width * bounds.height : 1
+  const hasSubject =
+    !!bounds &&
+    foregroundRatio >= 0.015 &&
+    !(foregroundRatio > 0.9 && boundsArea > 0.96)
+  const componentCount = hasSubject ? components.length : 0
+  const recommendedSize =
+    componentCount >= 3 ? 116 : componentCount === 2 ? 87 : 58
+
+  return {
+    hasSubject,
+    componentCount,
+    foregroundRatio,
+    bounds,
+    recommendedSize,
+  }
+}
+
+export async function extractSubject(
+  file: File,
+  mask: SubjectMask,
+  thresholdPercent = 50
+) {
+  const bounds = subjectBounds(mask, thresholdPercent)
+  if (!bounds) throw new Error("没有识别到可提取的图片主体")
+
+  const source = await loadSource(file)
+  try {
+    const sourceWidth =
+      "naturalWidth" in source ? source.naturalWidth : source.width
+    const sourceHeight =
+      "naturalHeight" in source ? source.naturalHeight : source.height
+    const padding = 0.08
+    const x = Math.max(0, bounds.x - bounds.width * padding)
+    const y = Math.max(0, bounds.y - bounds.height * padding)
+    const right = Math.min(1, bounds.x + bounds.width * (1 + padding))
+    const bottom = Math.min(1, bounds.y + bounds.height * (1 + padding))
+    const sourceX = Math.floor(x * sourceWidth)
+    const sourceY = Math.floor(y * sourceHeight)
+    const cropWidth = Math.max(1, Math.ceil((right - x) * sourceWidth))
+    const cropHeight = Math.max(1, Math.ceil((bottom - y) * sourceHeight))
+    const scale = Math.min(1, 2048 / Math.max(cropWidth, cropHeight))
+    const width = Math.max(1, Math.round(cropWidth * scale))
+    const height = Math.max(1, Math.round(cropHeight * scale))
+
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("当前浏览器无法创建主体画布")
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = "high"
+    context.drawImage(
+      source,
+      sourceX,
+      sourceY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      width,
+      height
+    )
+
+    const matte = maskCanvas(mask, thresholdPercent)
+    context.globalCompositeOperation = "destination-in"
+    context.drawImage(
+      matte,
+      x * mask.width,
+      y * mask.height,
+      (right - x) * mask.width,
+      (bottom - y) * mask.height,
+      0,
+      0,
+      width,
+      height
+    )
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (value) =>
+          value ? resolve(value) : reject(new Error("生成透明主体图片失败")),
+        "image/png"
+      )
+    })
+    const base = file.name.replace(/\.[^.]+$/, "") || "图片"
+    return new File([blob], `${base}-subject.png`, { type: "image/png" })
+  } finally {
+    if ("close" in source) source.close()
+  }
+}
+
+function subjectComponents(mask: SubjectMask, thresholdPercent: number) {
   const area = mask.width * mask.height
-  if (mask.width <= 0 || mask.height <= 0 || mask.data.length < area)
-    return null
+  if (mask.width <= 0 || mask.height <= 0 || mask.data.length < area) return []
 
   const cutoff = Math.max(0.02, Math.min(0.98, thresholdPercent / 100 - 0.08))
   const visited = new Uint8Array(area)
   const queue = new Int32Array(area)
-  const components: Array<{
-    weight: number
-    minX: number
-    minY: number
-    maxX: number
-    maxY: number
-  }> = []
+  const components: MaskComponent[] = []
 
   for (let start = 0; start < area; start++) {
     if (visited[start] || mask.data[start] < cutoff) continue
@@ -116,6 +257,7 @@ export function subjectBounds(
     queue[tail++] = start
     visited[start] = 1
     let weight = 0
+    let pixels = 0
     let minX = mask.width
     let minY = mask.height
     let maxX = -1
@@ -126,6 +268,7 @@ export function subjectBounds(
       const x = index % mask.width
       const y = Math.floor(index / mask.width)
       weight += mask.data[index]
+      pixels++
       minX = Math.min(minX, x)
       minY = Math.min(minY, y)
       maxX = Math.max(maxX, x)
@@ -151,37 +294,35 @@ export function subjectBounds(
         }
       }
     }
-    components.push({ weight, minX, minY, maxX, maxY })
+    components.push({ weight, pixels, minX, minY, maxX, maxY })
   }
 
-  if (components.length === 0) return null
+  if (components.length === 0) return []
   components.sort((first, second) => second.weight - first.weight)
   const minimumWeight = Math.max(4, components[0].weight * 0.04)
-  const selected = components.filter(
+  return components.filter(
     (component, index) => index === 0 || component.weight >= minimumWeight
   )
-  let minX = mask.width
-  let minY = mask.height
-  let maxX = -1
-  let maxY = -1
-  for (const component of selected) {
-    minX = Math.min(minX, component.minX)
-    minY = Math.min(minY, component.minY)
-    maxX = Math.max(maxX, component.maxX)
-    maxY = Math.max(maxY, component.maxY)
-  }
+}
 
-  // Keep one inference pixel around the matte so feathered edge pixels are not clipped.
-  minX = Math.max(0, minX - 1)
-  minY = Math.max(0, minY - 1)
-  maxX = Math.min(mask.width - 1, maxX + 1)
-  maxY = Math.min(mask.height - 1, maxY + 1)
-  return {
-    x: minX / mask.width,
-    y: minY / mask.height,
-    width: (maxX - minX + 1) / mask.width,
-    height: (maxY - minY + 1) / mask.height,
+function maskCanvas(mask: SubjectMask, thresholdPercent: number) {
+  const canvas = document.createElement("canvas")
+  canvas.width = mask.width
+  canvas.height = mask.height
+  const context = canvas.getContext("2d")
+  if (!context) throw new Error("当前浏览器无法创建主体遮罩")
+  const pixels = context.createImageData(mask.width, mask.height)
+  for (let index = 0; index < mask.data.length; index++) {
+    const offset = index * 4
+    pixels.data[offset] = 255
+    pixels.data[offset + 1] = 255
+    pixels.data[offset + 2] = 255
+    pixels.data[offset + 3] = Math.round(
+      matteAlpha(mask.data[index], thresholdPercent) * 255
+    )
   }
+  context.putImageData(pixels, 0, 0)
+  return canvas
 }
 
 async function getSession() {

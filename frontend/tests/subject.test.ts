@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  analyzeSubject,
   matteAlpha,
   normalizeMask,
   subjectBounds,
@@ -39,6 +40,30 @@ describe("subject mask", () => {
 
   it("returns no focus box when the model finds no foreground", () => {
     expect(subjectBounds(createMask(8, 8), 50)).toBeNull()
+  })
+
+  it("counts meaningful foreground components and recommends a grid", () => {
+    const mask = createMask(20, 10)
+    for (let y = 2; y <= 7; y++) {
+      for (let x = 2; x <= 6; x++) mask.data[y * mask.width + x] = 1
+      for (let x = 13; x <= 17; x++) mask.data[y * mask.width + x] = 1
+    }
+
+    expect(analyzeSubject(mask)).toMatchObject({
+      hasSubject: true,
+      componentCount: 2,
+      recommendedSize: 87,
+    })
+  })
+
+  it("treats an almost fully foreground mask as a complete scene", () => {
+    const mask = createMask(10, 10)
+    mask.data.fill(1)
+    expect(analyzeSubject(mask)).toMatchObject({
+      hasSubject: false,
+      componentCount: 0,
+      recommendedSize: 58,
+    })
   })
 })
 
