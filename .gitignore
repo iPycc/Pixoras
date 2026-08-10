@@ -24,8 +24,14 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
-.env
+# Environment files may contain server credentials.
+.env*
+!.env.example
+!frontend/.env.example
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
 
 # Editor/IDE
 # .idea/
