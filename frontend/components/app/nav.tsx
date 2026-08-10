@@ -2,7 +2,7 @@
 
 import {
   Add01Icon,
-  Download04Icon,
+  FileExportIcon,
   FolderOpenIcon,
   Home01Icon,
   Menu01Icon,
@@ -95,7 +95,7 @@ export function Nav({ ready, onNew, onExport }: Props) {
               data-tour="export"
             >
               <HugeiconsIcon
-                icon={Download04Icon}
+                icon={FileExportIcon}
                 strokeWidth={2}
                 data-icon="inline-start"
               />
