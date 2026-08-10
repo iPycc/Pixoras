@@ -15,7 +15,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning className="antialiased">
+    <html
+      lang="zh-CN"
+      suppressHydrationWarning
+      className="antialiased"
+      data-scroll-behavior="smooth"
+    >
       <body>
         <ThemeProvider>
           <TooltipProvider>{children}</TooltipProvider>
