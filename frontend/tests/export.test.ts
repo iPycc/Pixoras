@@ -45,6 +45,8 @@ describe("exports", () => {
     expect(svg).toContain("小猫图纸")
     expect(svg).toContain("Pixoras")
     expect(svg).toContain("Designed by Pixoras")
+    expect(svg).toContain('class="pixoras-brand-header"')
+    expect(svg).toContain('class="brand-name">Pixoras</text>')
     expect(svg).toContain('class="pixoras-brand-mark"')
     expect(svg).toContain('fill="#9F2F4F"')
     expect(svg).toContain('fill="#FFBE55"')
@@ -62,7 +64,7 @@ describe("exports", () => {
     const beads = svg.match(/<g class="beads">([\s\S]*?)<\/g>/)?.[1] ?? ""
     expect(beads.match(/<circle /g)).toHaveLength(3)
     expect(svg).toContain(">P11</text>")
-    expect(svgDimensions(svg)).toEqual({ width: 566, height: 308 })
+    expect(svgDimensions(svg)).toEqual({ width: 566, height: 348 })
   })
 
   it("falls back to safe dimensions for invalid SVG input", () => {

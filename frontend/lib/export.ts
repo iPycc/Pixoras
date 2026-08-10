@@ -20,7 +20,10 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
   const legendCols = showLegend && stats.length > 20 ? 2 : 1
   const legendRows = showLegend ? Math.ceil(stats.length / legendCols) : 0
   const legendWidth = showReport ? (legendCols === 2 ? 610 : 390) : 0
-  const legendHeight = showReport ? 210 + legendRows * 50 : 0
+  const reportHeaderOffset = showReport ? 40 : 0
+  const legendHeight = showReport
+    ? 210 + reportHeaderOffset + legendRows * 50
+    : 0
   const width = boardAreaWidth + legendWidth + (showReport ? 36 : 0)
   const creditHeight = !showReport ? 42 : 0
   const height =
@@ -118,18 +121,19 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
     </g>`
   const legend = showReport
     ? `<g class="legend">
-        <text x="${legendX}" y="68" class="title">${escapeXml(name)}</text>
-        <text x="${legendX}" y="98" class="muted">${pattern.width} × ${pattern.height} 格 · ${total(pattern)} 颗 · ${stats.length} 种颜色</text>
-        <path d="M${legendX} 124H${width - 28}" stroke="#ded8d4"/>
+        ${brandHeader(legendX, 28)}
+        <text x="${legendX}" y="${68 + reportHeaderOffset}" class="title">${escapeXml(name)}</text>
+        <text x="${legendX}" y="${98 + reportHeaderOffset}" class="muted">${pattern.width} × ${pattern.height} 格 · ${total(pattern)} 颗 · ${stats.length} 种颜色</text>
+        <path d="M${legendX} ${124 + reportHeaderOffset}H${width - 28}" stroke="#ded8d4"/>
         ${
           showLegend
-            ? `<text x="${legendX}" y="158" class="heading">颜色与用量</text>
+            ? `<text x="${legendX}" y="${158 + reportHeaderOffset}" class="heading">颜色与用量</text>
         ${stats
           .map((item, index) => {
             const column = Math.floor(index / legendRows)
             const row = index % legendRows
             const x = legendX + column * columnWidth
-            const y = 194 + row * 50
+            const y = 194 + reportHeaderOffset + row * 50
             return `<g>
             <rect x="${x}" y="${y - 16}" width="28" height="28" rx="5" fill="${item.color.hex}" stroke="#cfc8c4"/>
             <text x="${x + 38}" y="${y - 5}" class="row">${escapeXml(item.color.code)} · ${escapeXml(item.color.zh)}</text>
@@ -139,7 +143,7 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
           </g>`
           })
           .join("")}`
-            : `<text x="${legendX}" y="158" class="muted">材料清单未包含在本次图纸中</text>`
+            : `<text x="${legendX}" y="${158 + reportHeaderOffset}" class="muted">材料清单未包含在本次图纸中</text>`
         }
         <text x="${legendX}" y="${height - 50}" class="note">屏幕色仅为近似值，制作前请与实物豆色核对。</text>
       </g>`
@@ -147,7 +151,7 @@ export function svgReport(pattern: Pattern, opts: ExportOpts, name: string) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" class="pixoras-svg-report" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <style>
-      .pixoras-svg-report text{font-family:${FONT};font-size:10px;fill:#625a56}.pixoras-svg-report .grid path{stroke:#191716;stroke-opacity:.18;stroke-width:.7}.pixoras-svg-report .grid .board{stroke:#161311;stroke-opacity:.82;stroke-width:2}.pixoras-svg-report .code{font-weight:600}.pixoras-svg-report .dark-code{fill:#24201e}.pixoras-svg-report .light-code{fill:#fff}.pixoras-svg-report .signature{font-size:11px;font-weight:600;letter-spacing:.3px;fill:#625a56}.pixoras-svg-report .title{font-size:28px;font-weight:700;fill:#241f1d}.pixoras-svg-report .heading{font-size:16px;font-weight:700;fill:#241f1d}.pixoras-svg-report .muted{font-size:13px;fill:#7b716d}.pixoras-svg-report .row{font-size:13px;fill:#342f2c}.pixoras-svg-report .subrow{font-size:9px;fill:#8b817c}.pixoras-svg-report .count{font-size:13px;font-weight:700;fill:#342f2c}.pixoras-svg-report .note{font-size:11px;fill:#8b817c}
+      .pixoras-svg-report text{font-family:${FONT};font-size:10px;fill:#625a56}.pixoras-svg-report .grid path{stroke:#191716;stroke-opacity:.18;stroke-width:.7}.pixoras-svg-report .grid .board{stroke:#161311;stroke-opacity:.82;stroke-width:2}.pixoras-svg-report .code{font-weight:600}.pixoras-svg-report .dark-code{fill:#24201e}.pixoras-svg-report .light-code{fill:#fff}.pixoras-svg-report .brand-name{font-size:24px;font-weight:700;letter-spacing:-.4px;fill:#241f1d}.pixoras-svg-report .signature{font-size:11px;font-weight:600;letter-spacing:.3px;fill:#625a56}.pixoras-svg-report .title{font-size:28px;font-weight:700;fill:#241f1d}.pixoras-svg-report .heading{font-size:16px;font-weight:700;fill:#241f1d}.pixoras-svg-report .muted{font-size:13px;fill:#7b716d}.pixoras-svg-report .row{font-size:13px;fill:#342f2c}.pixoras-svg-report .subrow{font-size:9px;fill:#8b817c}.pixoras-svg-report .count{font-size:13px;font-weight:700;fill:#342f2c}.pixoras-svg-report .note{font-size:11px;fill:#8b817c}
     </style>
     ${background}
     <g class="beads">${cells.join("")}</g>
@@ -310,8 +314,15 @@ function darkText(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 155
 }
 
-function brandMark() {
-  return `<g class="pixoras-brand-mark" transform="scale(0.34375)" aria-label="Pixoras logo">
+function brandHeader(x: number, y: number) {
+  return `<g class="pixoras-brand-header" transform="translate(${x} ${y})" aria-label="Pixoras">
+      ${brandMark(0.5)}
+      <text x="44" y="26" class="brand-name">Pixoras</text>
+    </g>`
+}
+
+function brandMark(scale = 0.34375) {
+  return `<g class="pixoras-brand-mark" transform="scale(${scale})" aria-label="Pixoras logo">
       <rect width="64" height="64" rx="16" fill="#9F2F4F"/>
       <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#7B1F3C" stroke-opacity=".34" stroke-width="2"/>
       <g fill="#FFF3E8">
