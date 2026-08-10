@@ -52,6 +52,7 @@ import type { Settings as Values } from "@/types/pattern"
 interface Props {
   value: Values
   name: string
+  sourceMode: "image" | "blank"
   loading: boolean
   canGenerate: boolean
   onChange: (value: Values) => void
@@ -62,6 +63,7 @@ interface Props {
 export function Settings({
   value,
   name,
+  sourceMode,
   loading,
   canGenerate,
   onChange,
@@ -206,81 +208,88 @@ export function Settings({
           </Select>
         </Field>
 
-        {brandPalettes.length > 1 && selectedBrand.id !== "mard" && (
-          <Field>
-            <FieldLabel>品牌系列</FieldLabel>
-            <Select
-              items={brandPalettes.map((palette) => ({
-                label: palette.name,
-                value: palette.id,
-              }))}
-              value={value.palette}
-              onValueChange={(next) => next && selectPalette(next as PaletteId)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {brandPalettes.map((palette) => (
-                    <SelectItem key={palette.id} value={palette.id}>
-                      {palette.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
+        {brandPalettes.length > 1 &&
+          (selectedBrand.id !== "mard" || sourceMode === "blank") && (
+            <Field>
+              <FieldLabel>品牌系列</FieldLabel>
+              <Select
+                items={brandPalettes.map((palette) => ({
+                  label: palette.name,
+                  value: palette.id,
+                }))}
+                value={value.palette}
+                onValueChange={(next) =>
+                  next && selectPalette(next as PaletteId)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {brandPalettes.map((palette) => (
+                      <SelectItem key={palette.id} value={palette.id}>
+                        {palette.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
-        {selectedBrand.id === "mard" ? (
-          <Field>
-            <FieldLabel>MARD 分类</FieldLabel>
-            <Select
-              items={mardTiers.map((tier) => ({
-                label: tier === 291 ? "所有 MARD 颜色（291）" : `${tier} 色号`,
-                value: String(tier),
-              }))}
-              value={String(currentMardTier(value.palette, value.maxColors))}
-              onValueChange={(next) => {
-                if (!next) return
-                patch(resolveMardTier(Number(next) as MardTier))
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {mardTiers.map((tier) => (
-                    <SelectItem key={tier} value={String(tier)}>
-                      {tier === 291 ? "所有 MARD 颜色（291）" : `${tier} 色号`}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              24–144 色会从标准 221 色中自动挑选最适合当前图片的颜色。
-            </FieldDescription>
-          </Field>
-        ) : (
-          <Field>
-            <div className="flex items-center justify-between">
-              <FieldLabel>最多颜色</FieldLabel>
-              <span className="font-mono text-xs text-muted-foreground">
-                {value.maxColors}
-              </span>
-            </div>
-            <Slider
-              min={2}
-              max={maximumColors}
-              step={1}
-              value={[Math.min(value.maxColors, maximumColors)]}
-              onValueChange={(next) => patch({ maxColors: slider(next) })}
-            />
-          </Field>
-        )}
+        {sourceMode === "image" &&
+          (selectedBrand.id === "mard" ? (
+            <Field>
+              <FieldLabel>MARD 分类</FieldLabel>
+              <Select
+                items={mardTiers.map((tier) => ({
+                  label:
+                    tier === 291 ? "所有 MARD 颜色（291）" : `${tier} 色号`,
+                  value: String(tier),
+                }))}
+                value={String(currentMardTier(value.palette, value.maxColors))}
+                onValueChange={(next) => {
+                  if (!next) return
+                  patch(resolveMardTier(Number(next) as MardTier))
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {mardTiers.map((tier) => (
+                      <SelectItem key={tier} value={String(tier)}>
+                        {tier === 291
+                          ? "所有 MARD 颜色（291）"
+                          : `${tier} 色号`}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                24–144 色会从标准 221 色中自动挑选最适合当前图片的颜色。
+              </FieldDescription>
+            </Field>
+          ) : (
+            <Field>
+              <div className="flex items-center justify-between">
+                <FieldLabel>最多颜色</FieldLabel>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {value.maxColors}
+                </span>
+              </div>
+              <Slider
+                min={2}
+                max={maximumColors}
+                step={1}
+                value={[Math.min(value.maxColors, maximumColors)]}
+                onValueChange={(next) => patch({ maxColors: slider(next) })}
+              />
+            </Field>
+          ))}
 
         <div className="border-l-2 border-border pl-3 text-xs leading-5 text-muted-foreground">
           <p>
@@ -305,150 +314,186 @@ export function Settings({
         </div>
       </FieldGroup>
 
-      <Separator />
+      {sourceMode === "image" && (
+        <>
+          <Separator />
 
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium">图片方向</span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {value.rotation}°
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              patch({
-                rotation: ((value.rotation + 90) % 360) as Values["rotation"],
-              })
-            }
-          >
-            <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} />
-            旋转
-          </Button>
-          <Button
-            variant={value.flipX ? "secondary" : "outline"}
-            onClick={() => patch({ flipX: !value.flipX })}
-          >
-            <HugeiconsIcon icon={FlipHorizontalIcon} strokeWidth={2} />
-            水平
-          </Button>
-          <Button
-            variant={value.flipY ? "secondary" : "outline"}
-            onClick={() => patch({ flipY: !value.flipY })}
-          >
-            <HugeiconsIcon icon={FlipVerticalIcon} strokeWidth={2} />
-            垂直
-          </Button>
-        </div>
-      </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">图片方向</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {value.rotation}°
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  patch({
+                    rotation: ((value.rotation + 90) %
+                      360) as Values["rotation"],
+                  })
+                }
+              >
+                <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} />
+                旋转
+              </Button>
+              <Button
+                variant={value.flipX ? "secondary" : "outline"}
+                onClick={() => patch({ flipX: !value.flipX })}
+              >
+                <HugeiconsIcon icon={FlipHorizontalIcon} strokeWidth={2} />
+                水平
+              </Button>
+              <Button
+                variant={value.flipY ? "secondary" : "outline"}
+                onClick={() => patch({ flipY: !value.flipY })}
+              >
+                <HugeiconsIcon icon={FlipVerticalIcon} strokeWidth={2} />
+                垂直
+              </Button>
+            </div>
+          </div>
 
-      <Collapsible open={advanced} onOpenChange={setAdvanced}>
-        <CollapsibleTrigger
-          render={<Button variant="ghost" className="w-full justify-between" />}
-        >
-          高级设置
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">
-          <FieldGroup>
-            <Adjust
-              label="缩放"
-              value={value.scale}
-              min={100}
-              max={220}
-              onChange={(scale) => patch({ scale })}
-            />
-            <Adjust
-              label="水平位置"
-              value={value.offsetX}
-              min={-100}
-              max={100}
-              onChange={(offsetX) => patch({ offsetX })}
-            />
-            <Adjust
-              label="垂直位置"
-              value={value.offsetY}
-              min={-100}
-              max={100}
-              onChange={(offsetY) => patch({ offsetY })}
-            />
-            <Adjust
-              label="亮度"
-              value={value.brightness}
-              min={50}
-              max={150}
-              onChange={(brightness) => patch({ brightness })}
-            />
-            <Adjust
-              label="对比度"
-              value={value.contrast}
-              min={50}
-              max={150}
-              onChange={(contrast) => patch({ contrast })}
-            />
-            <Adjust
-              label="饱和度"
-              value={value.saturation}
-              min={0}
-              max={180}
-              onChange={(saturation) => patch({ saturation })}
-            />
-            <Field orientation="horizontal">
-              <FieldTitle>照片抖动</FieldTitle>
-              <Switch
-                checked={value.dither}
-                onCheckedChange={(dither) => patch({ dither })}
-              />
-            </Field>
-            <Field orientation="horizontal">
-              <FieldTitle>取色去背景</FieldTitle>
-              <Switch
-                checked={value.removeWhite}
-                onCheckedChange={(removeWhite) => patch({ removeWhite })}
-              />
-            </Field>
-            {value.removeWhite && (
-              <>
-                <Field>
-                  <div className="flex items-center justify-between">
-                    <FieldLabel htmlFor="background-color">背景颜色</FieldLabel>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {value.background}
-                    </span>
-                  </div>
-                  <Input
-                    id="background-color"
-                    type="color"
-                    value={value.background}
-                    onChange={(event) =>
-                      patch({
-                        background:
-                          event.target.value.toUpperCase() as `#${string}`,
-                      })
-                    }
-                    className="h-9 w-full"
+          <Collapsible open={advanced} onOpenChange={setAdvanced}>
+            <CollapsibleTrigger
+              render={
+                <Button variant="ghost" className="w-full justify-between" />
+              }
+            >
+              高级设置
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <FieldGroup>
+                <Adjust
+                  label="缩放"
+                  value={value.scale}
+                  min={100}
+                  max={220}
+                  onChange={(scale) => patch({ scale })}
+                />
+                <Adjust
+                  label="水平位置"
+                  value={value.offsetX}
+                  min={-100}
+                  max={100}
+                  onChange={(offsetX) => patch({ offsetX })}
+                />
+                <Adjust
+                  label="垂直位置"
+                  value={value.offsetY}
+                  min={-100}
+                  max={100}
+                  onChange={(offsetY) => patch({ offsetY })}
+                />
+                <Adjust
+                  label="亮度"
+                  value={value.brightness}
+                  min={50}
+                  max={150}
+                  onChange={(brightness) => patch({ brightness })}
+                />
+                <Adjust
+                  label="对比度"
+                  value={value.contrast}
+                  min={50}
+                  max={150}
+                  onChange={(contrast) => patch({ contrast })}
+                />
+                <Adjust
+                  label="饱和度"
+                  value={value.saturation}
+                  min={0}
+                  max={180}
+                  onChange={(saturation) => patch({ saturation })}
+                />
+                <Field orientation="horizontal">
+                  <FieldTitle>照片抖动</FieldTitle>
+                  <Switch
+                    checked={value.dither}
+                    onCheckedChange={(dither) => patch({ dither })}
                   />
                 </Field>
+                <Field orientation="horizontal">
+                  <div className="flex flex-col gap-1">
+                    <FieldTitle>仅保留图片主体</FieldTitle>
+                    <FieldDescription>
+                      在当前设备运行 AI，不上传图片；首次使用需加载约 5MB 模型。
+                    </FieldDescription>
+                  </div>
+                  <Switch
+                    checked={value.subjectOnly}
+                    onCheckedChange={(subjectOnly) =>
+                      patch({
+                        subjectOnly,
+                        removeWhite: subjectOnly ? false : value.removeWhite,
+                      })
+                    }
+                  />
+                </Field>
+                {value.subjectOnly && (
+                  <Adjust
+                    label="主体边缘"
+                    value={value.subjectThreshold}
+                    min={10}
+                    max={90}
+                    onChange={(subjectThreshold) => patch({ subjectThreshold })}
+                  />
+                )}
+                <Field orientation="horizontal">
+                  <FieldTitle>取色去背景</FieldTitle>
+                  <Switch
+                    checked={value.removeWhite}
+                    disabled={value.subjectOnly}
+                    onCheckedChange={(removeWhite) => patch({ removeWhite })}
+                  />
+                </Field>
+                {value.removeWhite && (
+                  <>
+                    <Field>
+                      <div className="flex items-center justify-between">
+                        <FieldLabel htmlFor="background-color">
+                          背景颜色
+                        </FieldLabel>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {value.background}
+                        </span>
+                      </div>
+                      <Input
+                        id="background-color"
+                        type="color"
+                        value={value.background}
+                        onChange={(event) =>
+                          patch({
+                            background:
+                              event.target.value.toUpperCase() as `#${string}`,
+                          })
+                        }
+                        className="h-9 w-full"
+                      />
+                    </Field>
+                    <Adjust
+                      label="背景容差"
+                      value={value.tolerance}
+                      min={0}
+                      max={100}
+                      onChange={(tolerance) => patch({ tolerance })}
+                    />
+                  </>
+                )}
                 <Adjust
-                  label="背景容差"
-                  value={value.tolerance}
+                  label="透明阈值"
+                  value={value.alpha}
                   min={0}
-                  max={100}
-                  onChange={(tolerance) => patch({ tolerance })}
+                  max={255}
+                  onChange={(alpha) => patch({ alpha })}
                 />
-              </>
-            )}
-            <Adjust
-              label="透明阈值"
-              value={value.alpha}
-              min={0}
-              max={255}
-              onChange={(alpha) => patch({ alpha })}
-            />
-          </FieldGroup>
-        </CollapsibleContent>
-      </Collapsible>
+              </FieldGroup>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
+      )}
 
       <Button size="lg" disabled={!canGenerate || loading} onClick={onGenerate}>
         {loading && (
@@ -459,7 +504,11 @@ export function Settings({
             className="animate-spin"
           />
         )}
-        {loading ? "正在生成…" : "应用生成设置"}
+        {loading
+          ? "正在生成…"
+          : sourceMode === "image"
+            ? "应用生成设置"
+            : "应用图纸设置"}
       </Button>
       <p className="text-xs leading-5 text-muted-foreground">
         色卡为屏幕近似值，实际制作前请与实物豆色核对。

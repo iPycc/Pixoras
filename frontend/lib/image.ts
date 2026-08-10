@@ -1,10 +1,15 @@
 import type { Settings } from "@/types/pattern"
+import { matteAlpha, type SubjectMask } from "@/lib/subject"
 
 const MAX_BYTES = 25 * 1024 * 1024
 const MAX_EDGE = 8192
 const SAMPLE = 4
 
-export async function readImage(file: File, settings: Settings) {
+export async function readImage(
+  file: File,
+  settings: Settings,
+  subjectMask?: SubjectMask
+) {
   const internalSample =
     file.name === "pixoras-demo.svg" && file.type === "image/svg+xml"
   if (!internalSample && !/^image\/(png|jpeg|webp)$/.test(file.type)) {
@@ -26,36 +31,14 @@ export async function readImage(file: File, settings: Settings) {
   const context = canvas.getContext("2d", { willReadFrequently: true })
   if (!context) throw new Error("当前浏览器无法创建图像画布")
 
-  const turn = settings.rotation === 90 || settings.rotation === 270
-  const imageWidth = turn ? sourceHeight : sourceWidth
-  const imageHeight = turn ? sourceWidth : sourceHeight
-  const cover = Math.max(canvas.width / imageWidth, canvas.height / imageHeight)
-  const scale = cover * (settings.scale / 100)
+  drawTransformed(context, source, sourceWidth, sourceHeight, settings, true)
 
-  context.save()
-  context.translate(
-    canvas.width / 2 + (settings.offsetX / 100) * canvas.width,
-    canvas.height / 2 + (settings.offsetY / 100) * canvas.height
-  )
-  context.rotate((settings.rotation * Math.PI) / 180)
-  context.scale(settings.flipX ? -1 : 1, settings.flipY ? -1 : 1)
-  context.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) saturate(${settings.saturation}%)`
-  context.imageSmoothingEnabled = true
-  context.imageSmoothingQuality = "high"
-  context.drawImage(
-    source,
-    -(sourceWidth * scale) / 2,
-    -(sourceHeight * scale) / 2,
-    sourceWidth * scale,
-    sourceHeight * scale
-  )
-  context.restore()
+  const rendered = context.getImageData(0, 0, canvas.width, canvas.height)
+  if (subjectMask) {
+    applySubjectMask(rendered, subjectMask, sourceWidth, sourceHeight, settings)
+  }
   close(source)
-  return alphaSample(
-    context.getImageData(0, 0, canvas.width, canvas.height),
-    settings.width,
-    settings.height
-  )
+  return alphaSample(rendered, settings.width, settings.height)
 }
 
 export async function imageSize(file: File) {
@@ -98,6 +81,82 @@ function alphaSample(source: ImageData, width: number, height: number) {
     }
   }
   return output
+}
+
+function drawTransformed(
+  context: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  settings: Settings,
+  filtered = false
+) {
+  const turn = settings.rotation === 90 || settings.rotation === 270
+  const imageWidth = turn ? sourceHeight : sourceWidth
+  const imageHeight = turn ? sourceWidth : sourceHeight
+  const cover = Math.max(
+    context.canvas.width / imageWidth,
+    context.canvas.height / imageHeight
+  )
+  const scale = cover * (settings.scale / 100)
+
+  context.save()
+  context.translate(
+    context.canvas.width / 2 + (settings.offsetX / 100) * context.canvas.width,
+    context.canvas.height / 2 + (settings.offsetY / 100) * context.canvas.height
+  )
+  context.rotate((settings.rotation * Math.PI) / 180)
+  context.scale(settings.flipX ? -1 : 1, settings.flipY ? -1 : 1)
+  if (filtered) {
+    context.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) saturate(${settings.saturation}%)`
+  }
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = "high"
+  context.drawImage(
+    source,
+    -(sourceWidth * scale) / 2,
+    -(sourceHeight * scale) / 2,
+    sourceWidth * scale,
+    sourceHeight * scale
+  )
+  context.restore()
+}
+
+function applySubjectMask(
+  target: ImageData,
+  mask: SubjectMask,
+  sourceWidth: number,
+  sourceHeight: number,
+  settings: Settings
+) {
+  const maskSource = document.createElement("canvas")
+  maskSource.width = mask.width
+  maskSource.height = mask.height
+  const sourceContext = maskSource.getContext("2d")
+  if (!sourceContext) throw new Error("当前浏览器无法创建主体遮罩")
+  const pixels = sourceContext.createImageData(mask.width, mask.height)
+  for (let index = 0; index < mask.data.length; index++) {
+    const offset = index * 4
+    pixels.data[offset] = 255
+    pixels.data[offset + 1] = 255
+    pixels.data[offset + 2] = 255
+    pixels.data[offset + 3] = Math.round(mask.data[index] * 255)
+  }
+  sourceContext.putImageData(pixels, 0, 0)
+
+  const renderedMask = document.createElement("canvas")
+  renderedMask.width = target.width
+  renderedMask.height = target.height
+  const maskContext = renderedMask.getContext("2d", {
+    willReadFrequently: true,
+  })
+  if (!maskContext) throw new Error("当前浏览器无法渲染主体遮罩")
+  drawTransformed(maskContext, maskSource, sourceWidth, sourceHeight, settings)
+  const alpha = maskContext.getImageData(0, 0, target.width, target.height).data
+  for (let offset = 3; offset < target.data.length; offset += 4) {
+    const matte = matteAlpha(alpha[offset] / 255, settings.subjectThreshold)
+    target.data[offset] = Math.round(target.data[offset] * matte)
+  }
 }
 
 async function load(file: File): Promise<ImageBitmap | HTMLImageElement> {

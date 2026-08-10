@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  GridIcon,
   ImageUploadIcon,
   MagicWand01Icon,
   SecurityLockIcon,
@@ -19,7 +20,13 @@ import {
 } from "@/components/ui/empty"
 import { cn } from "@/lib/utils"
 
-export function Upload({ onFile }: { onFile: (file: File) => void }) {
+export function Upload({
+  onFile,
+  onBlank,
+}: {
+  onFile: (file: File) => void
+  onBlank: () => void
+}) {
   const input = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
 
@@ -40,13 +47,13 @@ export function Upload({ onFile }: { onFile: (file: File) => void }) {
               把喜欢的图片，变成真正能制作的拼豆图纸。
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
-              自动匹配 Perler 与 Hama
-              实体豆色，保留透明空位，并随时逐格修改和统计用量。
+              自动匹配 MARD、Artkal、Perler、Hama
+              等实体豆色，支持主体提取、逐格修改和用量统计。
             </p>
           </div>
           <div className="grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             {[
-              ["01", "上传图片", "支持 PNG、JPEG、WebP"],
+              ["01", "导入或新建", "从图片转换，也可空白创作"],
               ["02", "调整图纸", "尺寸、色数和透明背景"],
               ["03", "编辑导出", "PNG、SVG 与用量表"],
             ].map(([number, title, text], index) => (
@@ -98,10 +105,10 @@ export function Upload({ onFile }: { onFile: (file: File) => void }) {
               />
             </EmptyMedia>
             <EmptyTitle className="text-lg font-semibold">
-              上传一张图片开始
+              选择创作方式
             </EmptyTitle>
             <EmptyDescription className="text-sm leading-6">
-              拖放到这里，或从设备中选择；透明 PNG 会自动保留为空位。
+              导入图片自动转换，或新建空白画布逐格绘制；也可把图片拖放到这里。
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -122,7 +129,20 @@ export function Upload({ onFile }: { onFile: (file: File) => void }) {
                 strokeWidth={2}
                 data-icon="inline-start"
               />
-              选择图片
+              导入图片
+            </Button>
+            <Button
+              className="text-base"
+              variant="outline"
+              size="lg"
+              onClick={onBlank}
+            >
+              <HugeiconsIcon
+                icon={GridIcon}
+                strokeWidth={2}
+                data-icon="inline-start"
+              />
+              新建空白图纸
             </Button>
             <Button
               className="text-base"

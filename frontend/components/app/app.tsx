@@ -18,6 +18,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { getPalette } from "@/data/palettes"
+import { BlankDialog, type BlankOptions } from "@/features/create/blank-dialog"
 import { CropDialog } from "@/features/crop/dialog"
 import { Canvas } from "@/features/editor/canvas"
 import { Palette } from "@/features/editor/palette"
@@ -26,11 +27,13 @@ import { ExportDialog } from "@/features/export/dialog"
 import { Settings } from "@/features/generate/settings"
 import { EditorTour } from "@/features/onboarding/editor-tour"
 import { Upload } from "@/features/upload/upload"
+import { deltaE, hexRgb, rgbLab } from "@/lib/color/lab"
 import { getProject, saveProject } from "@/lib/db"
 import { shortId } from "@/lib/id"
 import { imageSize, readImage } from "@/lib/image"
 import { replace } from "@/lib/pattern/edit"
 import { runWorker } from "@/lib/worker"
+import type { SubjectMask } from "@/lib/subject"
 import type { BeadColor } from "@/types/bead"
 import {
   defaults,
@@ -57,6 +60,7 @@ export function App({ id }: { id: string }) {
   const [settings, setSettings] = React.useState(defaults)
   const [pattern, setPattern] = React.useState<Pattern | null>(null)
   const [loading, setLoading] = React.useState(false)
+  const [loadingLabel, setLoadingLabel] = React.useState("")
   const [booting, setBooting] = React.useState(id !== "new")
   const [tool, setTool] = React.useState<Tool>("paint")
   const [shape, setShape] = React.useState<BeadShape>("square")
@@ -74,13 +78,29 @@ export function App({ id }: { id: string }) {
   const [tourOpen, setTourOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [paletteOpen, setPaletteOpen] = React.useState(false)
+  const [blankOpen, setBlankOpen] = React.useState(false)
+  const subjectMask = React.useRef<{ file: File; mask: SubjectMask } | null>(
+    null
+  )
 
   const generate = React.useCallback(
     async (source: File | null = file, values: Values = settings) => {
       if (!source) return
       setLoading(true)
       try {
-        const image = await readImage(source, values)
+        let mask: SubjectMask | undefined
+        if (values.subjectOnly) {
+          setLoadingLabel("正在本地提取图片主体")
+          if (subjectMask.current?.file === source) {
+            mask = subjectMask.current.mask
+          } else {
+            const { segmentSubject } = await import("@/lib/subject")
+            mask = await segmentSubject(source)
+            subjectMask.current = { file: source, mask }
+          }
+        }
+        setLoadingLabel("正在分析颜色和透明区域")
+        const image = await readImage(source, values, mask)
         const colors = getPalette(values.palette).colors
         const next = await runWorker(image, colors, values)
         setPattern(next)
@@ -94,6 +114,7 @@ export function App({ id }: { id: string }) {
         toast.error(error instanceof Error ? error.message : "图片转换失败")
       } finally {
         setLoading(false)
+        setLoadingLabel("")
       }
     },
     [file, settings]
@@ -126,6 +147,7 @@ export function App({ id }: { id: string }) {
     setSelected(firstColor(next))
     setPast([])
     setFuture([])
+    subjectMask.current = null
     setBooting(false)
   }, [])
 
@@ -220,6 +242,7 @@ export function App({ id }: { id: string }) {
     setCropSource(null)
     URL.revokeObjectURL(source.url)
     setFile(next)
+    subjectMask.current = null
     setSourceName(source.file.name)
     setName(baseName)
     setSettings(nextSettings)
@@ -310,8 +333,71 @@ export function App({ id }: { id: string }) {
     setCreatedAt(0)
     setUpdatedAt(0)
     setZoom(100)
+    subjectMask.current = null
     setBooting(false)
     router.push("/p/?id=new")
+  }
+
+  const createBlank = async (options: BlankOptions) => {
+    const nextSettings = {
+      ...defaults,
+      width: options.width,
+      height: options.height,
+      lockRatio: options.width === options.height,
+      palette: options.palette,
+    }
+    const palette = getPalette(options.palette)
+    const next: Pattern = {
+      width: options.width,
+      height: options.height,
+      cells: new Uint16Array(options.width * options.height),
+      colors: palette.colors,
+    }
+    const nextId = shortId()
+    const now = Date.now()
+    setBlankOpen(false)
+    setFile(null)
+    subjectMask.current = null
+    setSourceName("")
+    setName(options.name)
+    setSettings(nextSettings)
+    setPattern(next)
+    setPast([])
+    setFuture([])
+    setSelected(1)
+    setProjectId(nextId)
+    setCreatedAt(now)
+    setUpdatedAt(now)
+
+    try {
+      await saveProject({
+        version: 1,
+        id: nextId,
+        name: options.name,
+        sourceName: "",
+        width: next.width,
+        height: next.height,
+        cells: Array.from(next.cells),
+        colors: next.colors,
+        shape,
+        settings: nextSettings,
+        createdAt: now,
+        updatedAt: now,
+      })
+      activeProjectId.current = nextId
+      router.replace(`/p/?id=${encodeURIComponent(nextId)}`)
+      toast.success("空白图纸已创建")
+    } catch {
+      toast.error("空白图纸已打开，但本地保存失败")
+    }
+  }
+
+  const applyBlankSettings = () => {
+    if (!pattern) return
+    const next = resizeAndRemap(pattern, settings)
+    commit(next)
+    setSelected(firstColor(next))
+    toast.success("图纸设置已应用")
   }
 
   const current = React.useMemo<Project | null>(() => {
@@ -390,12 +476,16 @@ export function App({ id }: { id: string }) {
         onExport={() => setExportOpen(true)}
       />
 
-      {!pattern && !loading && !booting && <Upload onFile={openFile} />}
+      {!pattern && !loading && !booting && (
+        <Upload onFile={openFile} onBlank={() => setBlankOpen(true)} />
+      )}
       {!pattern && (loading || booting) && (
         <main className="flex min-h-svh items-center justify-center px-6 pt-24">
           <div className="flex w-full max-w-xs flex-col items-center gap-4 text-center">
             <p className="text-sm font-medium">
-              {booting ? "正在打开本地作品" : "正在分析颜色和透明区域"}
+              {booting
+                ? "正在打开本地作品"
+                : loadingLabel || "正在分析颜色和透明区域"}
             </p>
             <Progress value={booting ? 42 : 68} />
             <p className="text-xs text-muted-foreground">
@@ -416,11 +506,14 @@ export function App({ id }: { id: string }) {
                 <Settings
                   value={settings}
                   name={name}
+                  sourceMode={file ? "image" : "blank"}
                   loading={loading}
-                  canGenerate={!!file}
+                  canGenerate
                   onChange={setSettings}
                   onNameChange={rename}
-                  onGenerate={() => generate()}
+                  onGenerate={() =>
+                    file ? void generate() : applyBlankSettings()
+                  }
                 />
               </aside>
             </ScrollArea>
@@ -515,12 +608,14 @@ export function App({ id }: { id: string }) {
                 <Settings
                   value={settings}
                   name={name}
+                  sourceMode={file ? "image" : "blank"}
                   loading={loading}
-                  canGenerate={!!file}
+                  canGenerate
                   onChange={setSettings}
                   onNameChange={rename}
                   onGenerate={async () => {
-                    await generate()
+                    if (file) await generate()
+                    else applyBlankSettings()
                     setSettingsOpen(false)
                   }}
                 />
@@ -570,6 +665,11 @@ export function App({ id }: { id: string }) {
         }}
         onApply={applyCrop}
       />
+      <BlankDialog
+        open={blankOpen}
+        onOpen={setBlankOpen}
+        onCreate={createBlank}
+      />
       <ExportDialog
         open={exportOpen}
         pattern={pattern}
@@ -585,4 +685,47 @@ export function App({ id }: { id: string }) {
 function firstColor(pattern: Pattern) {
   for (const value of pattern.cells) if (value) return value
   return 1
+}
+
+function resizeAndRemap(pattern: Pattern, settings: Values): Pattern {
+  const colors = getPalette(settings.palette).colors
+  const byId = new Map(colors.map((color, index) => [color.id, index + 1]))
+  const mapping = new Map<number, number>([[0, 0]])
+  const targetLabs = colors.map((color) => rgbLab(hexRgb(color.hex)))
+
+  const remap = (value: number) => {
+    const cached = mapping.get(value)
+    if (cached !== undefined) return cached
+    const source = pattern.colors[value - 1]
+    if (!source) return 0
+    const exact = byId.get(source.id)
+    if (exact) {
+      mapping.set(value, exact)
+      return exact
+    }
+    const sourceLab = rgbLab(hexRgb(source.hex))
+    let match = 0
+    let shortest = Number.POSITIVE_INFINITY
+    for (let index = 0; index < targetLabs.length; index++) {
+      const distance = deltaE(sourceLab, targetLabs[index])
+      if (distance < shortest) {
+        shortest = distance
+        match = index + 1
+      }
+    }
+    mapping.set(value, match)
+    return match
+  }
+
+  const cells = new Uint16Array(settings.width * settings.height)
+  const width = Math.min(pattern.width, settings.width)
+  const height = Math.min(pattern.height, settings.height)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      cells[y * settings.width + x] = remap(
+        pattern.cells[y * pattern.width + x]
+      )
+    }
+  }
+  return { width: settings.width, height: settings.height, cells, colors }
 }

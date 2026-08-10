@@ -11,6 +11,8 @@ export interface Settings {
   maxColors: number
   alpha: number
   dither: boolean
+  subjectOnly: boolean
+  subjectThreshold: number
   removeWhite: boolean
   background: `#${string}`
   tolerance: number
@@ -62,6 +64,8 @@ export const defaults: Settings = {
   maxColors: 24,
   alpha: 16,
   dither: false,
+  subjectOnly: false,
+  subjectThreshold: 50,
   removeWhite: false,
   background: "#FFFFFF",
   tolerance: 24,
