@@ -20,7 +20,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldTitle } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@/components/ui/field"
 import { Slider } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cropFile } from "@/lib/crop"
@@ -30,6 +35,7 @@ type Ratio = "source" | "1:1" | "4:3" | "16:9"
 interface Source {
   file: File
   url: string
+  pixelArt?: boolean
 }
 
 interface Props {
@@ -51,7 +57,9 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
   const [view, setView] = React.useState<"photo" | "pixel">("photo")
   const [busy, setBusy] = React.useState(false)
 
-  const sourceRatio = media ? media.naturalWidth / media.naturalHeight : size.width / size.height
+  const sourceRatio = media
+    ? media.naturalWidth / media.naturalHeight
+    : size.width / size.height
   const aspect = ratioValue(ratio, sourceRatio)
   const height = Math.max(10, Math.min(200, Math.round(width / aspect)))
 
@@ -59,7 +67,13 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
     if (!source || !area) return
     setBusy(true)
     try {
-      const file = await cropFile(source.url, source.file.name, area, rotation)
+      const file = await cropFile(
+        source.url,
+        source.file.name,
+        area,
+        rotation,
+        source.pixelArt
+      )
       onApply(file, { width, height })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "裁剪图片失败")
@@ -70,10 +84,12 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={busy ? undefined : onOpen}>
-      <DialogContent className="grid h-[min(860px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-2rem)] xl:max-w-6xl animate-none!">
+      <DialogContent className="grid h-[min(860px,calc(100dvh-2rem))] animate-none! grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-2rem)] xl:max-w-6xl">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="text-xl">裁剪图片</DialogTitle>
-          <DialogDescription>移动图片并选择保留范围，图纸尺寸和预览会同步更新。</DialogDescription>
+          <DialogDescription>
+            移动图片并选择保留范围，图纸尺寸和预览会同步更新。
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 grid-rows-[minmax(220px,1fr)_minmax(220px,1fr)] bg-muted/25 md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-1">
@@ -81,7 +97,9 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">实时预览</p>
-                <p className="text-xs text-muted-foreground">拖动图片选择画面，滚轮或双指调整大小。</p>
+                <p className="text-xs text-muted-foreground">
+                  拖动图片选择画面，滚轮或双指调整大小。
+                </p>
               </div>
               <span className="rounded-md border bg-background px-2 py-1 font-mono text-xs">
                 {Math.round(zoom * 100)}%
@@ -103,7 +121,14 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
                   onZoomChange={setZoom}
                   onMediaLoaded={setMedia}
                   onCropComplete={(_, pixels) => setArea(pixels)}
-                  style={{ mediaStyle: { imageRendering: view === "pixel" ? "pixelated" : "auto" } }}
+                  style={{
+                    mediaStyle: {
+                      imageRendering:
+                        source.pixelArt || view === "pixel"
+                          ? "pixelated"
+                          : "auto",
+                    },
+                  }}
                 />
               )}
             </div>
@@ -115,17 +140,27 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
                 <FieldTitle>预览方式</FieldTitle>
                 <ToggleGroup
                   value={[view]}
-                  onValueChange={(items) => items[0] && setView(items[0] as typeof view)}
+                  onValueChange={(items) =>
+                    items[0] && setView(items[0] as typeof view)
+                  }
                   variant="outline"
                   spacing={1}
                   className="grid w-full grid-cols-2"
                 >
                   <ToggleGroupItem value="photo">
-                    <HugeiconsIcon icon={Image01Icon} strokeWidth={2} data-icon="inline-start" />
+                    <HugeiconsIcon
+                      icon={Image01Icon}
+                      strokeWidth={2}
+                      data-icon="inline-start"
+                    />
                     原图
                   </ToggleGroupItem>
                   <ToggleGroupItem value="pixel">
-                    <HugeiconsIcon icon={GridIcon} strokeWidth={2} data-icon="inline-start" />
+                    <HugeiconsIcon
+                      icon={GridIcon}
+                      strokeWidth={2}
+                      data-icon="inline-start"
+                    />
                     像素预览
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -134,23 +169,31 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
               <Field>
                 <div className="flex items-center justify-between gap-3">
                   <FieldTitle>图纸宽度</FieldTitle>
-                  <span className="font-mono text-xs">{width} × {height} 格</span>
+                  <span className="font-mono text-xs">
+                    {width} × {height} 格
+                  </span>
                 </div>
                 <Slider
                   min={10}
                   max={200}
                   step={1}
                   value={[width]}
-                  onValueChange={(next) => setWidth(Array.isArray(next) ? next[0] : next)}
+                  onValueChange={(next) =>
+                    setWidth(Array.isArray(next) ? next[0] : next)
+                  }
                 />
-                <FieldDescription>高度按裁剪比例自动计算，范围限制为 10–200 格。</FieldDescription>
+                <FieldDescription>
+                  高度按裁剪比例自动计算，范围限制为 10–200 格。
+                </FieldDescription>
               </Field>
 
               <Field>
                 <FieldTitle>裁剪比例</FieldTitle>
                 <ToggleGroup
                   value={[ratio]}
-                  onValueChange={(items) => items[0] && setRatio(items[0] as Ratio)}
+                  onValueChange={(items) =>
+                    items[0] && setRatio(items[0] as Ratio)
+                  }
                   variant="outline"
                   spacing={1}
                   className="grid w-full grid-cols-4"
@@ -171,7 +214,11 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
                   variant="outline"
                   onClick={() => setRotation((value) => (value + 90) % 360)}
                 >
-                  <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} data-icon="inline-start" />
+                  <HugeiconsIcon
+                    icon={RotateClockwiseIcon}
+                    strokeWidth={2}
+                    data-icon="inline-start"
+                  />
                   顺时针旋转 90°
                 </Button>
               </Field>
@@ -179,14 +226,18 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
               <Field>
                 <div className="flex items-center justify-between gap-3">
                   <FieldTitle>图片缩放</FieldTitle>
-                  <span className="font-mono text-xs">{Math.round(zoom * 100)}%</span>
+                  <span className="font-mono text-xs">
+                    {Math.round(zoom * 100)}%
+                  </span>
                 </div>
                 <Slider
                   min={1}
                   max={5}
                   step={0.01}
                   value={[zoom]}
-                  onValueChange={(next) => setZoom(Array.isArray(next) ? next[0] : next)}
+                  onValueChange={(next) =>
+                    setZoom(Array.isArray(next) ? next[0] : next)
+                  }
                 />
               </Field>
             </FieldGroup>
@@ -194,9 +245,22 @@ export function CropDialog({ open, source, size, onOpen, onApply }: Props) {
         </div>
 
         <DialogFooter className="border-t bg-background px-6 py-4">
-          <Button variant="outline" disabled={busy} onClick={() => onOpen(false)}>取消</Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() => onOpen(false)}
+          >
+            取消
+          </Button>
           <Button disabled={busy || !area} onClick={apply}>
-            {busy && <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} data-icon="inline-start" className="animate-spin" />}
+            {busy && (
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+                className="animate-spin"
+              />
+            )}
             按裁剪生成
           </Button>
         </DialogFooter>

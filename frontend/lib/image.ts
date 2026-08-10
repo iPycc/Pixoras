@@ -8,7 +8,7 @@ import {
 
 const MAX_BYTES = 25 * 1024 * 1024
 const MAX_EDGE = 8192
-const SAMPLE = 4
+const PHOTO_SAMPLE = 4
 
 export async function readImage(
   file: File,
@@ -25,14 +25,15 @@ export async function readImage(
   const source = await load(file)
   const sourceWidth = source.width
   const sourceHeight = source.height
+  const sample = settings.pixelArt ? 1 : PHOTO_SAMPLE
   if (Math.max(sourceWidth, sourceHeight) > MAX_EDGE) {
     close(source)
     throw new Error("图片最长边不能超过 8192 像素")
   }
 
   const canvas = document.createElement("canvas")
-  canvas.width = settings.width * SAMPLE
-  canvas.height = settings.height * SAMPLE
+  canvas.width = settings.width * sample
+  canvas.height = settings.height * sample
   const context = canvas.getContext("2d", { willReadFrequently: true })
   if (!context) throw new Error("当前浏览器无法创建图像画布")
 
@@ -48,7 +49,8 @@ export async function readImage(
     sourceHeight,
     settings,
     true,
-    focus
+    focus,
+    !settings.pixelArt
   )
 
   const rendered = context.getImageData(0, 0, canvas.width, canvas.height)
@@ -63,7 +65,10 @@ export async function readImage(
     )
   }
   close(source)
-  const sampled = alphaSample(rendered, settings.width, settings.height)
+  const sampled =
+    sample === 1
+      ? rendered
+      : alphaSample(rendered, settings.width, settings.height, sample)
   return subjectMask && !settings.subjectAutoFit
     ? cropTransparent(sampled, settings.alpha)
     : sampled
@@ -78,19 +83,24 @@ export async function imageSize(file: File) {
   }
 }
 
-function alphaSample(source: ImageData, width: number, height: number) {
+function alphaSample(
+  source: ImageData,
+  width: number,
+  height: number,
+  sample: number
+) {
   const output = new ImageData(width, height)
-  const area = SAMPLE * SAMPLE
+  const area = sample * sample
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       let alpha = 0
       let red = 0
       let green = 0
       let blue = 0
-      for (let sy = 0; sy < SAMPLE; sy++) {
-        for (let sx = 0; sx < SAMPLE; sx++) {
-          const sourceX = x * SAMPLE + sx
-          const sourceY = y * SAMPLE + sy
+      for (let sy = 0; sy < sample; sy++) {
+        for (let sx = 0; sx < sample; sx++) {
+          const sourceX = x * sample + sx
+          const sourceY = y * sample + sy
           const offset = (sourceY * source.width + sourceX) * 4
           const weight = source.data[offset + 3] / 255
           alpha += weight
@@ -117,8 +127,7 @@ export function alphaBounds(
   height: number,
   minimumAlpha: number
 ) {
-  if (width <= 0 || height <= 0 || data.length < width * height * 4)
-    return null
+  if (width <= 0 || height <= 0 || data.length < width * height * 4) return null
 
   const threshold = Math.max(1, Math.min(255, minimumAlpha))
   let minX = width
@@ -179,7 +188,8 @@ function drawTransformed(
   sourceHeight: number,
   settings: Settings,
   filtered = false,
-  focus: SubjectBounds | null = null
+  focus: SubjectBounds | null = null,
+  smoothing = true
 ) {
   const focusWidth = sourceWidth * (focus?.width ?? 1)
   const focusHeight = sourceHeight * (focus?.height ?? 1)
@@ -209,7 +219,7 @@ function drawTransformed(
   if (filtered) {
     context.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) saturate(${settings.saturation}%)`
   }
-  context.imageSmoothingEnabled = true
+  context.imageSmoothingEnabled = smoothing
   context.imageSmoothingQuality = "high"
   context.drawImage(
     source,

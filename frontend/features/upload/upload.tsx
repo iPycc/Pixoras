@@ -164,7 +164,7 @@ export function Upload({
               strokeWidth={2}
               className="size-4"
             />
-            无需登录 · 不上传服务器 · 最大 25MB
+            普通转换完全本地处理 · AI 插画仅在确认后上传 · 最大 25MB
           </div>
         </Empty>
       </section>

@@ -11,6 +11,7 @@ export interface Settings {
   maxColors: number
   alpha: number
   dither: boolean
+  pixelArt: boolean
   subjectOnly: boolean
   subjectAutoFit: boolean
   subjectThreshold: number
@@ -62,9 +63,10 @@ export const defaults: Settings = {
   height: 58,
   lockRatio: true,
   palette: "perler",
-  maxColors: 24,
+  maxColors: 48,
   alpha: 16,
   dither: false,
+  pixelArt: false,
   subjectOnly: false,
   subjectAutoFit: false,
   subjectThreshold: 50,
