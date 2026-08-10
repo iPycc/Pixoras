@@ -6,6 +6,13 @@ export interface SubjectMask {
   data: Float32Array
 }
 
+export interface SubjectBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const INPUT_SIZE = 320
 let sessionPromise: Promise<Ort.InferenceSession> | null = null
 
@@ -81,6 +88,100 @@ export function matteAlpha(value: number, thresholdPercent: number) {
   if (value >= end) return 1
   const progress = (value - start) / (end - start)
   return progress * progress * (3 - 2 * progress)
+}
+
+export function subjectBounds(
+  mask: SubjectMask,
+  thresholdPercent: number
+): SubjectBounds | null {
+  const area = mask.width * mask.height
+  if (mask.width <= 0 || mask.height <= 0 || mask.data.length < area)
+    return null
+
+  const cutoff = Math.max(0.02, Math.min(0.98, thresholdPercent / 100 - 0.08))
+  const visited = new Uint8Array(area)
+  const queue = new Int32Array(area)
+  const components: Array<{
+    weight: number
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+  }> = []
+
+  for (let start = 0; start < area; start++) {
+    if (visited[start] || mask.data[start] < cutoff) continue
+    let head = 0
+    let tail = 0
+    queue[tail++] = start
+    visited[start] = 1
+    let weight = 0
+    let minX = mask.width
+    let minY = mask.height
+    let maxX = -1
+    let maxY = -1
+
+    while (head < tail) {
+      const index = queue[head++]
+      const x = index % mask.width
+      const y = Math.floor(index / mask.width)
+      weight += mask.data[index]
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+
+      for (let offsetY = -1; offsetY <= 1; offsetY++) {
+        for (let offsetX = -1; offsetX <= 1; offsetX++) {
+          if (offsetX === 0 && offsetY === 0) continue
+          const nextX = x + offsetX
+          const nextY = y + offsetY
+          if (
+            nextX < 0 ||
+            nextX >= mask.width ||
+            nextY < 0 ||
+            nextY >= mask.height
+          ) {
+            continue
+          }
+          const next = nextY * mask.width + nextX
+          if (visited[next] || mask.data[next] < cutoff) continue
+          visited[next] = 1
+          queue[tail++] = next
+        }
+      }
+    }
+    components.push({ weight, minX, minY, maxX, maxY })
+  }
+
+  if (components.length === 0) return null
+  components.sort((first, second) => second.weight - first.weight)
+  const minimumWeight = Math.max(4, components[0].weight * 0.04)
+  const selected = components.filter(
+    (component, index) => index === 0 || component.weight >= minimumWeight
+  )
+  let minX = mask.width
+  let minY = mask.height
+  let maxX = -1
+  let maxY = -1
+  for (const component of selected) {
+    minX = Math.min(minX, component.minX)
+    minY = Math.min(minY, component.minY)
+    maxX = Math.max(maxX, component.maxX)
+    maxY = Math.max(maxY, component.maxY)
+  }
+
+  // Keep one inference pixel around the matte so feathered edge pixels are not clipped.
+  minX = Math.max(0, minX - 1)
+  minY = Math.max(0, minY - 1)
+  maxX = Math.min(mask.width - 1, maxX + 1)
+  maxY = Math.min(mask.height - 1, maxY + 1)
+  return {
+    x: minX / mask.width,
+    y: minY / mask.height,
+    width: (maxX - minX + 1) / mask.width,
+    height: (maxY - minY + 1) / mask.height,
+  }
 }
 
 async function getSession() {

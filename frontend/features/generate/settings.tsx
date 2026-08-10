@@ -369,7 +369,7 @@ export function Settings({
                 <Adjust
                   label="缩放"
                   value={value.scale}
-                  min={100}
+                  min={value.subjectOnly ? 50 : 100}
                   max={220}
                   onChange={(scale) => patch({ scale })}
                 />
@@ -419,7 +419,8 @@ export function Settings({
                   <div className="flex flex-col gap-1">
                     <FieldTitle>仅保留图片主体</FieldTitle>
                     <FieldDescription>
-                      在当前设备运行 AI，不上传图片；首次使用需加载约 5MB 模型。
+                      自动识别边界并按图纸宽高居中适配；AI
+                      在当前设备运行，不上传图片。
                     </FieldDescription>
                   </div>
                   <Switch
@@ -428,6 +429,9 @@ export function Settings({
                       patch({
                         subjectOnly,
                         removeWhite: subjectOnly ? false : value.removeWhite,
+                        scale: subjectOnly
+                          ? value.scale
+                          : Math.max(100, value.scale),
                       })
                     }
                   />
@@ -441,7 +445,10 @@ export function Settings({
                     onChange={(subjectThreshold) => patch({ subjectThreshold })}
                   />
                 )}
-                <Field orientation="horizontal">
+                <Field
+                  orientation="horizontal"
+                  data-disabled={value.subjectOnly}
+                >
                   <FieldTitle>取色去背景</FieldTitle>
                   <Switch
                     checked={value.removeWhite}

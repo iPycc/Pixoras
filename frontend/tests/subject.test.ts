@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { matteAlpha, normalizeMask } from "@/lib/subject"
+import {
+  matteAlpha,
+  normalizeMask,
+  subjectBounds,
+  type SubjectMask,
+} from "@/lib/subject"
 
 describe("subject mask", () => {
   it("normalizes model output into a stable zero-to-one matte", () => {
@@ -16,4 +21,27 @@ describe("subject mask", () => {
     expect(matteAlpha(0.9, 50)).toBe(1)
     expect(matteAlpha(0.55, 70)).toBe(0)
   })
+
+  it("finds the meaningful subject bounds while ignoring isolated mask noise", () => {
+    const mask = createMask(10, 10)
+    for (let y = 2; y <= 7; y++) {
+      for (let x = 4; x <= 6; x++) mask.data[y * mask.width + x] = 1
+    }
+    mask.data[9 * mask.width] = 1
+
+    expect(subjectBounds(mask, 50)).toEqual({
+      x: 0.3,
+      y: 0.1,
+      width: 0.5,
+      height: 0.8,
+    })
+  })
+
+  it("returns no focus box when the model finds no foreground", () => {
+    expect(subjectBounds(createMask(8, 8), 50)).toBeNull()
+  })
 })
+
+function createMask(width: number, height: number): SubjectMask {
+  return { width, height, data: new Float32Array(width * height) }
+}

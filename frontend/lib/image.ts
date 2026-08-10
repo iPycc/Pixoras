@@ -1,5 +1,10 @@
 import type { Settings } from "@/types/pattern"
-import { matteAlpha, type SubjectMask } from "@/lib/subject"
+import {
+  matteAlpha,
+  subjectBounds,
+  type SubjectBounds,
+  type SubjectMask,
+} from "@/lib/subject"
 
 const MAX_BYTES = 25 * 1024 * 1024
 const MAX_EDGE = 8192
@@ -31,11 +36,29 @@ export async function readImage(
   const context = canvas.getContext("2d", { willReadFrequently: true })
   if (!context) throw new Error("当前浏览器无法创建图像画布")
 
-  drawTransformed(context, source, sourceWidth, sourceHeight, settings, true)
+  const focus = subjectMask
+    ? subjectBounds(subjectMask, settings.subjectThreshold)
+    : null
+  drawTransformed(
+    context,
+    source,
+    sourceWidth,
+    sourceHeight,
+    settings,
+    true,
+    focus
+  )
 
   const rendered = context.getImageData(0, 0, canvas.width, canvas.height)
   if (subjectMask) {
-    applySubjectMask(rendered, subjectMask, sourceWidth, sourceHeight, settings)
+    applySubjectMask(
+      rendered,
+      subjectMask,
+      sourceWidth,
+      sourceHeight,
+      settings,
+      focus
+    )
   }
   close(source)
   return alphaSample(rendered, settings.width, settings.height)
@@ -89,16 +112,26 @@ function drawTransformed(
   sourceWidth: number,
   sourceHeight: number,
   settings: Settings,
-  filtered = false
+  filtered = false,
+  focus: SubjectBounds | null = null
 ) {
+  const focusWidth = sourceWidth * (focus?.width ?? 1)
+  const focusHeight = sourceHeight * (focus?.height ?? 1)
   const turn = settings.rotation === 90 || settings.rotation === 270
-  const imageWidth = turn ? sourceHeight : sourceWidth
-  const imageHeight = turn ? sourceWidth : sourceHeight
-  const cover = Math.max(
-    context.canvas.width / imageWidth,
-    context.canvas.height / imageHeight
-  )
-  const scale = cover * (settings.scale / 100)
+  const imageWidth = turn ? focusHeight : focusWidth
+  const imageHeight = turn ? focusWidth : focusHeight
+  const baseScale = focus
+    ? Math.min(
+        context.canvas.width / imageWidth,
+        context.canvas.height / imageHeight
+      ) * 0.88
+    : Math.max(
+        context.canvas.width / imageWidth,
+        context.canvas.height / imageHeight
+      )
+  const scale = baseScale * (settings.scale / 100)
+  const centerX = sourceWidth * ((focus?.x ?? 0) + (focus?.width ?? 1) / 2)
+  const centerY = sourceHeight * ((focus?.y ?? 0) + (focus?.height ?? 1) / 2)
 
   context.save()
   context.translate(
@@ -114,8 +147,8 @@ function drawTransformed(
   context.imageSmoothingQuality = "high"
   context.drawImage(
     source,
-    -(sourceWidth * scale) / 2,
-    -(sourceHeight * scale) / 2,
+    -centerX * scale,
+    -centerY * scale,
     sourceWidth * scale,
     sourceHeight * scale
   )
@@ -127,7 +160,8 @@ function applySubjectMask(
   mask: SubjectMask,
   sourceWidth: number,
   sourceHeight: number,
-  settings: Settings
+  settings: Settings,
+  focus: SubjectBounds | null
 ) {
   const maskSource = document.createElement("canvas")
   maskSource.width = mask.width
@@ -151,7 +185,15 @@ function applySubjectMask(
     willReadFrequently: true,
   })
   if (!maskContext) throw new Error("当前浏览器无法渲染主体遮罩")
-  drawTransformed(maskContext, maskSource, sourceWidth, sourceHeight, settings)
+  drawTransformed(
+    maskContext,
+    maskSource,
+    sourceWidth,
+    sourceHeight,
+    settings,
+    false,
+    focus
+  )
   const alpha = maskContext.getImageData(0, 0, target.width, target.height).data
   for (let offset = 3; offset < target.data.length; offset += 4) {
     const matte = matteAlpha(alpha[offset] / 255, settings.subjectThreshold)
