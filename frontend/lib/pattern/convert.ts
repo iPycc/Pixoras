@@ -77,47 +77,62 @@ function selectColors(
   const max = Math.max(1, Math.min(maximum, colors.length))
   if (colors.length <= max) return colors
 
-  const distances = new Float32Array(samples.length * colors.length)
-  samples.forEach((sample, sampleIndex) => {
-    if (!sample) return
-    colors.forEach((color, colorIndex) => {
-      distances[sampleIndex * colors.length + colorIndex] = deltaE(sample.lab, color.lab)
-    })
-  })
+  // Calculate every pixel-to-color distance once. Each active color owns the
+  // pixels for which it is currently the best representative; merging two
+  // clusters then costs O(color count), independent of image resolution.
+  const clusters = new Map<number, Float64Array>()
+  for (const sample of samples) {
+    if (!sample) continue
+    const costs = new Float64Array(colors.length)
+    let owner = 0
+    let shortest = Number.POSITIVE_INFINITY
+    for (let colorIndex = 0; colorIndex < colors.length; colorIndex++) {
+      const distance = deltaE(sample.lab, colors[colorIndex].lab)
+      costs[colorIndex] = distance
+      if (distance < shortest) {
+        shortest = distance
+        owner = colorIndex
+      }
+    }
+    const cluster = clusters.get(owner)
+    if (cluster) {
+      for (let index = 0; index < costs.length; index++)
+        cluster[index] += costs[index]
+    } else {
+      clusters.set(owner, costs)
+    }
+  }
 
-  const active = new Set(colors.map((_, index) => index))
+  if (clusters.size === 0) return colors.slice(0, max)
+  const active = new Set(clusters.keys())
+  if (active.size <= max) return colors.filter((_, index) => active.has(index))
+
   while (active.size > max) {
-    const cost = new Float64Array(colors.length)
-    for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex++) {
-      if (!samples[sampleIndex]) continue
-      let best = -1
-      let bestDistance = Number.POSITIVE_INFINITY
-      let secondDistance = Number.POSITIVE_INFINITY
-      for (const colorIndex of active) {
-        const distance = distances[sampleIndex * colors.length + colorIndex]
-        if (distance < bestDistance) {
-          secondDistance = bestDistance
-          bestDistance = distance
-          best = colorIndex
-        } else if (distance < secondDistance) {
-          secondDistance = distance
+    let mergeFrom = -1
+    let mergeInto = -1
+    let smallestIncrease = Number.POSITIVE_INFINITY
+    for (const from of active) {
+      const cost = clusters.get(from)
+      if (!cost) continue
+      for (const into of active) {
+        if (from === into) continue
+        const increase = cost[into] - cost[from]
+        if (increase < smallestIncrease) {
+          smallestIncrease = increase
+          mergeFrom = from
+          mergeInto = into
         }
       }
-      if (best >= 0 && Number.isFinite(secondDistance)) {
-        cost[best] += secondDistance - bestDistance
-      }
     }
+    if (mergeFrom < 0 || mergeInto < 0) break
 
-    let remove = -1
-    let smallest = Number.POSITIVE_INFINITY
-    for (const colorIndex of active) {
-      if (cost[colorIndex] < smallest) {
-        smallest = cost[colorIndex]
-        remove = colorIndex
-      }
-    }
-    if (remove < 0) break
-    active.delete(remove)
+    const source = clusters.get(mergeFrom)
+    const target = clusters.get(mergeInto)
+    if (!source || !target) break
+    for (let index = 0; index < target.length; index++)
+      target[index] += source[index]
+    clusters.delete(mergeFrom)
+    active.delete(mergeFrom)
   }
   return colors.filter((_, index) => active.has(index))
 }
