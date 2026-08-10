@@ -254,16 +254,19 @@ export function ProjectsPage() {
         open={!!removing}
         onOpenChange={(open) => !open && setRemoving(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="gap-5 p-6 data-[size=default]:max-w-[calc(100%_-_2rem)] data-[size=default]:sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>删除“{removing?.name}”？</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base">
+              删除“{removing?.name}”？
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
               此操作会从当前浏览器永久移除该作品，且无法撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogFooter className="pt-2">
+            <AlertDialogCancel size="lg">取消</AlertDialogCancel>
             <AlertDialogAction
+              size="lg"
               variant="destructive"
               onClick={async () => {
                 if (!removing) return
