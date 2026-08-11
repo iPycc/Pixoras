@@ -48,7 +48,7 @@ export function Canvas({
     y: number
     value: number
   } | null>(null)
-  const cell = Math.max(7, Math.min(64, Math.round(18 * (zoom / 100))))
+  const cell = Math.max(1, Math.min(64, 18 * (zoom / 100)))
   const pad = 30
   const hoverColor = hover ? pattern.colors[hover.value - 1] : null
   const hoverLabel = hoverColor
@@ -95,33 +95,36 @@ export function Canvas({
             context.fill()
           }
         } else {
+          const inset = Math.min(0.75, cell * 0.08)
           context.fillRect(
-            pad + x * cell + 0.75,
-            pad + y * cell + 0.75,
-            cell - 1.5,
-            cell - 1.5
+            pad + x * cell + inset,
+            pad + y * cell + inset,
+            Math.max(0.5, cell - inset * 2),
+            Math.max(0.5, cell - inset * 2)
           )
         }
       }
     }
     context.globalAlpha = 1
 
-    context.lineWidth = 0.75
-    context.strokeStyle = "rgba(36,31,29,.12)"
-    context.beginPath()
-    for (let x = 0; x <= pattern.width; x++) {
-      const px = pad + x * cell
-      context.moveTo(px, pad)
-      context.lineTo(px, pad + pattern.height * cell)
+    if (cell >= 3) {
+      context.lineWidth = Math.min(0.75, cell * 0.12)
+      context.strokeStyle = "rgba(36,31,29,.12)"
+      context.beginPath()
+      for (let x = 0; x <= pattern.width; x++) {
+        const px = pad + x * cell
+        context.moveTo(px, pad)
+        context.lineTo(px, pad + pattern.height * cell)
+      }
+      for (let y = 0; y <= pattern.height; y++) {
+        const py = pad + y * cell
+        context.moveTo(pad, py)
+        context.lineTo(pad + pattern.width * cell, py)
+      }
+      context.stroke()
     }
-    for (let y = 0; y <= pattern.height; y++) {
-      const py = pad + y * cell
-      context.moveTo(pad, py)
-      context.lineTo(pad + pattern.width * cell, py)
-    }
-    context.stroke()
 
-    context.lineWidth = 2
+    context.lineWidth = Math.max(1, Math.min(2, cell * 0.18))
     context.strokeStyle = "#C93E6A"
     context.beginPath()
     for (let x = 29; x < pattern.width; x += 29) {
@@ -136,15 +139,17 @@ export function Canvas({
     }
     context.stroke()
 
-    context.fillStyle = "#7A706C"
-    context.font = "10px 'Noto Sans SC Variable', 'Noto Sans SC', sans-serif"
-    context.textAlign = "center"
-    for (let x = 4; x < pattern.width; x += 5) {
-      context.fillText(String(x + 1), pad + (x + 0.5) * cell, 19)
-    }
-    context.textAlign = "right"
-    for (let y = 4; y < pattern.height; y += 5) {
-      context.fillText(String(y + 1), 23, pad + (y + 0.7) * cell)
+    if (cell >= 6) {
+      context.fillStyle = "#7A706C"
+      context.font = "10px 'Noto Sans SC Variable', 'Noto Sans SC', sans-serif"
+      context.textAlign = "center"
+      for (let x = 4; x < pattern.width; x += 5) {
+        context.fillText(String(x + 1), pad + (x + 0.5) * cell, 19)
+      }
+      context.textAlign = "right"
+      for (let y = 4; y < pattern.height; y += 5) {
+        context.fillText(String(y + 1), 23, pad + (y + 0.7) * cell)
+      }
     }
   }, [pattern, cell, highlight, shape])
 
@@ -302,4 +307,4 @@ function pointerDistance(pointers: Map<number, { x: number; y: number }>) {
   return Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
 }
 
-const clampZoom = (value: number) => Math.max(25, Math.min(800, value))
+const clampZoom = (value: number) => Math.max(5, Math.min(800, value))

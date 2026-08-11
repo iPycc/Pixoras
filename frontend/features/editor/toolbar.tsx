@@ -141,7 +141,7 @@ export function Toolbar({
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => onZoom(Math.max(25, zoom - 25))}
+        onClick={() => onZoom(Math.max(5, zoom - 25))}
         aria-label="缩小"
       >
         <HugeiconsIcon icon={ZoomOutAreaIcon} strokeWidth={2} />

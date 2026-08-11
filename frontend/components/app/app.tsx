@@ -111,6 +111,22 @@ export function App({ id }: { id: string }) {
   )
   const importRequest = React.useRef(0)
   const aiAbort = React.useRef<AbortController | null>(null)
+  const patternWidth = pattern?.width
+  const patternHeight = pattern?.height
+
+  React.useEffect(() => {
+    if (!patternWidth || window.matchMedia("(min-width: 1024px)").matches)
+      return
+    const horizontalRoom = Math.max(180, window.innerWidth - 76)
+    const fitted =
+      Math.floor(
+        Math.min(100, (horizontalRoom / (patternWidth * 18)) * 100) / 5
+      ) * 5
+    const frame = window.requestAnimationFrame(() =>
+      setZoom(Math.max(5, fitted))
+    )
+    return () => window.cancelAnimationFrame(frame)
+  }, [patternHeight, patternWidth])
 
   const generate = React.useCallback(
     async (source: File | null = file, values: Values = settings) => {

@@ -23,8 +23,12 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const facts = [
-  { value: "100%", label: "浏览器本地处理", detail: "原图不会上传服务器" },
-  { value: "2 套", label: "实体拼豆色卡", detail: "Perler 与 Hama Midi" },
+  {
+    value: "本地优先",
+    label: "普通转换不上传",
+    detail: "AI 插画仅在确认后发送",
+  },
+  { value: "12 套", label: "实体拼豆色卡", detail: "覆盖 6 个常用品牌" },
   { value: "200 × 200", label: "最大图纸尺寸", detail: "支持拼板分界与坐标" },
   { value: "3 种", label: "制作文件导出", detail: "PNG、SVG 与 CSV" },
 ]
@@ -270,7 +274,7 @@ export function Home() {
                     strokeWidth={2}
                     className="size-4 shrink-0"
                   />
-                  不上传原图
+                  普通转换不上传
                 </span>
                 <span className="flex items-center gap-2">
                   <HugeiconsIcon
@@ -334,7 +338,7 @@ export function Home() {
                 选一张喜欢的图片，几分钟后开始摆豆。
               </h2>
               <p className="text-lg leading-8 text-muted-foreground">
-                无需注册，也不需要把图片交给服务器。
+                无需注册；普通转换完全本地处理，AI 插画仅在你确认后上传。
               </p>
             </div>
             <Link
