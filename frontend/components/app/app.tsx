@@ -35,7 +35,7 @@ import { imageSize, readImage } from "@/lib/image"
 import { inventoryColors, readInventory } from "@/lib/inventory"
 import { replace } from "@/lib/pattern/edit"
 import { sanitizeCompleted, toggleCompleted } from "@/lib/progress"
-import { segmentSubject, type SubjectMask } from "@/lib/subject"
+import type { SubjectMask } from "@/lib/subject"
 import { runWorker } from "@/lib/worker"
 import type { BeadColor } from "@/types/bead"
 import {
