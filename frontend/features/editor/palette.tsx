@@ -18,6 +18,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { InventoryDialog } from "@/features/inventory/dialog"
 import { beadColorDetails } from "@/lib/color/label"
 import { total, usage } from "@/lib/pattern/edit"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ export function Palette({ pattern, selected, onSelect, onHighlight, onAdd, onRep
   const [search, setSearch] = React.useState("")
   const [addOpen, setAddOpen] = React.useState(false)
   const [replaceOpen, setReplaceOpen] = React.useState(false)
+  const [inventoryOpen, setInventoryOpen] = React.useState(false)
   const [name, setName] = React.useState("自定义色")
   const [hex, setHex] = React.useState("#D94E78")
   const [target, setTarget] = React.useState(1)
@@ -58,7 +60,16 @@ export function Palette({ pattern, selected, onSelect, onHighlight, onAdd, onRep
               {total(pattern)} 颗 · {counts.size} 种颜色
             </p>
           </div>
-          <Badge variant="secondary">{pattern.colors[0]?.brand}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{pattern.colors[0]?.brand}</Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInventoryOpen(true)}
+            >
+              个人库存
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <HugeiconsIcon
@@ -202,6 +213,12 @@ export function Palette({ pattern, selected, onSelect, onHighlight, onAdd, onRep
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <InventoryDialog
+        open={inventoryOpen}
+        pattern={pattern}
+        onOpen={setInventoryOpen}
+      />
     </div>
   )
 }

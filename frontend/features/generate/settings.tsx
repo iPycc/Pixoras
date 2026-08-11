@@ -25,6 +25,8 @@ import {
   FieldTitle,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { useInventory } from "@/features/inventory/use-inventory"
+import { inventoryColorCount } from "@/lib/inventory"
 import {
   Select,
   SelectContent,
@@ -84,6 +86,11 @@ export function Settings({
   const maximumColors = selectedPalette.colors.filter(
     (color) => color.auto
   ).length
+  const inventory = useInventory()
+  const availableInventoryColors = inventoryColorCount(
+    selectedPalette.colors,
+    inventory
+  )
 
   const selectBrand = (brandId: BrandId) => {
     const brand = brands.find((item) => item.id === brandId)
@@ -310,6 +317,23 @@ export function Settings({
             </Field>
           ))}
 
+        {sourceMode === "image" && (
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldTitle>仅使用个人库存</FieldTitle>
+              <FieldDescription>
+                {availableInventoryColors > 0
+                  ? `当前系列已有 ${availableInventoryColors} 个库存色；重新生成后只会使用这些颜色。`
+                  : "请先在颜色与用量面板中登记个人库存。"}
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              checked={value.inventoryOnly}
+              disabled={availableInventoryColors === 0}
+              onCheckedChange={(inventoryOnly) => patch({ inventoryOnly })}
+            />
+          </Field>
+        )}
       </FieldGroup>
 
       {sourceMode === "image" && (

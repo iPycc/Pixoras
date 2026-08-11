@@ -9,6 +9,7 @@ export interface Settings {
   lockRatio: boolean
   palette: PaletteId
   maxColors: number
+  inventoryOnly: boolean
   alpha: number
   dither: boolean
   pixelArt: boolean
@@ -64,6 +65,7 @@ export const defaults: Settings = {
   lockRatio: true,
   palette: "perler",
   maxColors: 48,
+  inventoryOnly: false,
   alpha: 16,
   dither: false,
   pixelArt: false,

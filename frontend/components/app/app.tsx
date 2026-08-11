@@ -37,6 +37,7 @@ import { deltaE, hexRgb, rgbLab } from "@/lib/color/lab"
 import { getProject, saveProject } from "@/lib/db"
 import { shortId } from "@/lib/id"
 import { imageSize, readImage } from "@/lib/image"
+import { inventoryColors, readInventory } from "@/lib/inventory"
 import { replace } from "@/lib/pattern/edit"
 import { DEFAULT_PIXEL_STRENGTH, pixelateFile } from "@/lib/pixelate"
 import {
@@ -146,7 +147,14 @@ export function App({ id }: { id: string }) {
         }
         setLoadingLabel("正在分析颜色和透明区域")
         const image = await readImage(source, values, mask)
-        const colors = getPalette(values.palette).colors
+        const colors = inventoryColors(
+          getPalette(values.palette).colors,
+          readInventory(),
+          values.inventoryOnly
+        )
+        if (colors.length === 0) {
+          throw new Error("当前品牌没有已登记的库存颜色，请先关闭库存限制")
+        }
         const next = await runWorker(image, colors, values)
         setPattern(next)
         setUpdatedAt(Date.now())
