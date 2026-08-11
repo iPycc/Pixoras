@@ -26,26 +26,14 @@ import { Toolbar } from "@/features/editor/toolbar"
 import { ExportDialog } from "@/features/export/dialog"
 import { Settings } from "@/features/generate/settings"
 import { EditorTour } from "@/features/onboarding/editor-tour"
-import {
-  UploadDialog,
-  type UploadPreview,
-  type UploadStage,
-} from "@/features/upload/dialog"
 import { Upload } from "@/features/upload/upload"
-import { generateIllustration } from "@/lib/ai/client"
 import { deltaE, hexRgb, rgbLab } from "@/lib/color/lab"
 import { getProject, saveProject } from "@/lib/db"
 import { shortId } from "@/lib/id"
 import { imageSize, readImage } from "@/lib/image"
 import { inventoryColors, readInventory } from "@/lib/inventory"
 import { replace } from "@/lib/pattern/edit"
-import { DEFAULT_PIXEL_STRENGTH, pixelateFile } from "@/lib/pixelate"
-import {
-  analyzeSubject,
-  segmentSubject,
-  type SubjectAnalysis,
-  type SubjectMask,
-} from "@/lib/subject"
+import { segmentSubject, type SubjectMask } from "@/lib/subject"
 import { runWorker } from "@/lib/worker"
 import type { BeadColor } from "@/types/bead"
 import {
@@ -63,16 +51,6 @@ interface CropSource {
   originalName?: string
   recommendedSize?: number
   pixelArt?: boolean
-}
-
-interface ImportSession {
-  source: UploadPreview
-  analysis: SubjectAnalysis | null
-  result: UploadPreview | null
-  stage: UploadStage
-  pixelEnabled: boolean
-  pixelStrength: number
-  error: string
 }
 
 const EDITOR_TOUR_COMPLETE = "pixoras.editor-tour.complete.v1"
@@ -100,8 +78,6 @@ export function App({ id }: { id: string }) {
   const [createdAt, setCreatedAt] = React.useState(0)
   const [updatedAt, setUpdatedAt] = React.useState(0)
   const [cropSource, setCropSource] = React.useState<CropSource | null>(null)
-  const [importSession, setImportSession] =
-    React.useState<ImportSession | null>(null)
   const [exportOpen, setExportOpen] = React.useState(false)
   const [tourOpen, setTourOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
@@ -110,8 +86,6 @@ export function App({ id }: { id: string }) {
   const subjectMask = React.useRef<{ file: File; mask: SubjectMask } | null>(
     null
   )
-  const importRequest = React.useRef(0)
-  const aiAbort = React.useRef<AbortController | null>(null)
   const patternWidth = pattern?.width
   const patternHeight = pattern?.height
 
@@ -278,154 +252,29 @@ export function App({ id }: { id: string }) {
       toast.error("浏览器无法解码这张图片")
       return
     }
-    closeImport()
-    const requestId = ++importRequest.current
-    const source = { file: next, url: URL.createObjectURL(next) }
-    setImportSession({
-      source,
-      analysis: null,
-      result: null,
-      stage: "analyzing",
-      pixelEnabled: true,
-      pixelStrength: DEFAULT_PIXEL_STRENGTH,
-      error: "",
-    })
-    try {
-      const mask = await segmentSubject(next)
-      const analysis = analyzeSubject(mask)
-      if (requestId !== importRequest.current) return
-      setImportSession((current) =>
-        current?.source.file === next
-          ? { ...current, analysis, stage: "choice" }
-          : current
-      )
-    } catch {
-      if (requestId !== importRequest.current) return
-      setImportSession((current) =>
-        current?.source.file === next
-          ? {
-              ...current,
-              analysis: {
-                hasSubject: false,
-                componentCount: 0,
-                foregroundRatio: 1,
-                bounds: null,
-                recommendedSize: 58,
-              },
-              stage: "choice",
-              error: "本地主体识别暂时不可用，AI 仍会从原图提取主要主体。",
-            }
-          : current
-      )
-    }
-  }
-
-  const closeImport = () => {
-    importRequest.current++
-    aiAbort.current?.abort()
-    aiAbort.current = null
-    if (importSession) {
-      URL.revokeObjectURL(importSession.source.url)
-      if (importSession.result) URL.revokeObjectURL(importSession.result.url)
-    }
-    setImportSession(null)
-  }
-
-  const selectImport = (source: File, pixelArt = false) => {
-    if (!importSession?.analysis) return
     if (cropSource) URL.revokeObjectURL(cropSource.url)
     setCropSource({
-      file: source,
-      url: URL.createObjectURL(source),
-      originalName: importSession.source.file.name,
-      recommendedSize: importSession.analysis.recommendedSize,
-      pixelArt,
+      file: next,
+      url: URL.createObjectURL(next),
     })
-    closeImport()
-  }
-
-  const generateAiImport = async () => {
-    const session = importSession
-    if (!session?.analysis) return
-    const recommendedSize = session.analysis.recommendedSize === 116 ? 116 : 87
-    aiAbort.current?.abort()
-    const controller = new AbortController()
-    aiAbort.current = controller
-    const requestId = importRequest.current
-    if (session.result) URL.revokeObjectURL(session.result.url)
-    setImportSession({
-      ...session,
-      result: null,
-      stage: "generating",
-      error: "",
-    })
-    try {
-      const generated = await generateIllustration(session.source.file, {
-        targetSize: recommendedSize,
-        signal: controller.signal,
-      })
-      if (requestId !== importRequest.current) return
-      setImportSession((current) =>
-        current
-          ? {
-              ...current,
-              analysis: current.analysis
-                ? { ...current.analysis, recommendedSize }
-                : current.analysis,
-              result: {
-                file: generated,
-                url: URL.createObjectURL(generated),
-              },
-              stage: "result",
-              error: "",
-            }
-          : current
-      )
-    } catch (cause) {
-      if (controller.signal.aborted) return
-      setImportSession((current) =>
-        current
-          ? {
-              ...current,
-              stage: "choice",
-              error:
-                cause instanceof Error ? cause.message : "AI 像素画生成失败",
-            }
-          : current
-      )
-    } finally {
-      if (aiAbort.current === controller) aiAbort.current = null
-    }
-  }
-
-  const applyPixelResult = async () => {
-    const session = importSession
-    if (!session?.result) return
-    try {
-      const pixelated = await pixelateFile(
-        session.result.file,
-        session.pixelStrength
-      )
-      selectImport(pixelated, true)
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "像素画处理失败")
-    }
   }
 
   const applyCrop = async (
     next: File,
-    size: { width: number; height: number }
+    size: { width: number; height: number },
+    options?: { pixelArt?: boolean }
   ) => {
     const source = cropSource
     if (!source) return
     const originalName = source.originalName ?? source.file.name
     const baseName = originalName.replace(/\.[^.]+$/, "") || "未命名图纸"
+    const pixelArt = options?.pixelArt ?? source.pixelArt ?? false
     const nextSettings = {
       ...settings,
       ...size,
       lockRatio: true,
-      pixelArt: source.pixelArt ?? false,
-      ...(source.pixelArt
+      pixelArt,
+      ...(pixelArt
         ? { palette: "mard-221" as const, maxColors: 120, dither: false }
         : {}),
     }
@@ -513,7 +362,8 @@ export function App({ id }: { id: string }) {
   }
 
   const reset = () => {
-    closeImport()
+    if (cropSource) URL.revokeObjectURL(cropSource.url)
+    setCropSource(null)
     setFile(null)
     setSourceName("")
     setName("未命名图纸")
@@ -860,31 +710,6 @@ export function App({ id }: { id: string }) {
           setCropSource(null)
         }}
         onApply={applyCrop}
-      />
-      <UploadDialog
-        source={importSession?.source ?? null}
-        result={importSession?.result ?? null}
-        analysis={importSession?.analysis ?? null}
-        stage={importSession?.stage ?? "analyzing"}
-        pixelEnabled={importSession?.pixelEnabled ?? true}
-        pixelStrength={importSession?.pixelStrength ?? DEFAULT_PIXEL_STRENGTH}
-        error={importSession?.error ?? ""}
-        onPixelEnabled={(pixelEnabled) =>
-          setImportSession((current) =>
-            current ? { ...current, pixelEnabled, error: "" } : current
-          )
-        }
-        onPixelStrength={(pixelStrength) =>
-          setImportSession((current) =>
-            current ? { ...current, pixelStrength } : current
-          )
-        }
-        onClose={closeImport}
-        onGenerate={() => void generateAiImport()}
-        onUseOriginal={() =>
-          importSession?.source && selectImport(importSession.source.file)
-        }
-        onUseResult={() => void applyPixelResult()}
       />
       <BlankDialog
         open={blankOpen}

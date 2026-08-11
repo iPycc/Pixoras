@@ -1,5 +1,6 @@
 interface Options {
   targetSize: number
+  effect?: string
   signal?: AbortSignal
 }
 
@@ -7,6 +8,8 @@ export async function generateIllustration(file: File, options: Options) {
   const form = new FormData()
   form.set("image", file)
   form.set("targetSize", String(options.targetSize))
+  const effect = options.effect?.trim()
+  if (effect) form.set("effect", effect)
 
   const configuredBase = process.env.NEXT_PUBLIC_AI_API_BASE?.replace(/\/$/, "")
   const baseUrl =

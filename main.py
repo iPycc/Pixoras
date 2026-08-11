@@ -108,6 +108,7 @@ async def illustrate(
     request: Request,
     image: UploadFile = File(...),
     target_size: int = Form(58, alias="targetSize"),
+    custom_effect: str = Form("", alias="effect"),
 ):
     await enforce_rate_limit(client_address(request))
     if not os.getenv("ARK_API_KEY"):
@@ -126,6 +127,7 @@ async def illustrate(
 
     prompt = illustration_prompt(
         target_size=target_size,
+        custom_effect=custom_effect,
     )
     try:
         result = await run_in_threadpool(
@@ -284,10 +286,10 @@ def generate_with_windows_transport(
 def illustration_prompt(
     *,
     target_size: int,
+    custom_effect: str = "",
 ) -> str:
     size = max(29, min(200, round(target_size or 58)))
-    return "\n".join(
-        [
+    lines = [
             "任务是参考照片重画Q版像素角色，不是给整张照片添加像素化滤镜。",
             "识别照片中的全部主要人物；如果没有人物，则识别全部主要宠物或动物。"
             "人物数量和身份必须准确，不能增加、删除、融合或交换人物特征。",
@@ -312,7 +314,14 @@ def illustration_prompt(
             "不要添加网格线、伪拼豆纹理、真实拼豆、色号或任何文字。",
             "当前图片必须保持干净、平整、无纹理。输出单张完整图片。",
         ]
-    )
+    effect = CONTROL_CHARACTERS.sub(" ", custom_effect)
+    effect = re.sub(r"\s+", " ", effect).strip()[:200]
+    if effect:
+        lines.append(
+            f"额外风格要求：{effect}。只调整视觉风格，不能覆盖以上主体、构图、"
+            "纯白背景和无纹理要求。"
+        )
+    return "\n".join(lines)
 
 
 async def enforce_rate_limit(client: str):

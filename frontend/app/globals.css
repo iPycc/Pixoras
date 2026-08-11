@@ -157,12 +157,116 @@
   }
 }
 
+@keyframes ai-preview-scan {
+  0% {
+    transform: translateX(-140%);
+  }
+  100% {
+    transform: translateX(440%);
+  }
+}
+
+@keyframes ai-preview-pixels {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes ai-preview-status {
+  0%,
+  100% {
+    transform: rotate(-8deg) scale(0.94);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.08);
+  }
+}
+
 .ui-enter {
   animation: ui-enter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .ui-panel-enter {
   animation: ui-panel-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.crop-preview-shell {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(
+      45deg,
+      color-mix(in oklch, var(--muted) 70%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      -45deg,
+      color-mix(in oklch, var(--muted) 70%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 75%,
+      color-mix(in oklch, var(--muted) 70%, transparent) 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 75%,
+      color-mix(in oklch, var(--muted) 70%, transparent) 75%
+    );
+  background-position:
+    0 0,
+    0 10px,
+    10px -10px,
+    -10px 0;
+  background-size: 20px 20px;
+}
+
+.ai-preview-loading {
+  isolation: isolate;
+  background: color-mix(in oklch, var(--background) 24%, transparent);
+}
+
+.ai-preview-loading::before {
+  position: absolute;
+  inset: -8%;
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--primary) 22%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary) 22%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+  content: "";
+  animation: ai-preview-pixels 1.8s steps(6) infinite;
+}
+
+.ai-preview-loading::after {
+  position: absolute;
+  inset-block: -8%;
+  left: 0;
+  width: 28%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--primary) 42%, transparent),
+    transparent
+  );
+  content: "";
+  animation: ai-preview-scan 2.25s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.ai-preview-status-icon {
+  animation: ai-preview-status 1.15s ease-in-out infinite;
 }
 
 .canvas-scroll {
@@ -377,6 +481,9 @@
 
   .ui-enter,
   .ui-panel-enter,
+  .ai-preview-loading::before,
+  .ai-preview-loading::after,
+  .ai-preview-status-icon,
   .home-rise,
   .home-bead,
   .home-scan,

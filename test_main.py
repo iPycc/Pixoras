@@ -28,6 +28,17 @@ class PromptTests(unittest.TestCase):
         )
         self.assertFalse(matches_image_signature(b"not-an-image", "image/png"))
 
+    def test_custom_effect_is_optional_and_keeps_default_rules(self):
+        default_prompt = illustration_prompt(target_size=58)
+        custom_prompt = illustration_prompt(
+            target_size=58,
+            custom_effect="  日系手账风，圆眼睛  ",
+        )
+
+        self.assertNotIn("额外风格要求", default_prompt)
+        self.assertIn("额外风格要求：日系手账风，圆眼睛", custom_prompt)
+        self.assertIn("不能覆盖以上主体、构图", custom_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
