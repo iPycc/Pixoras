@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { csvText, svgDimensions, svgReport } from "@/lib/export"
+import {
+  csvText,
+  materialListSvgs,
+  pdfTiles,
+  svgDimensions,
+  svgReport,
+} from "@/lib/export"
 import type { BeadColor } from "@/types/bead"
 import type { ExportOpts, Pattern } from "@/types/pattern"
 
@@ -121,5 +127,33 @@ describe("exports", () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff)
     expect(csv).toContain('"中文名"')
     expect(csv).toContain('"粉色","Pink","#EB78A8","3","100.00%"')
+  })
+
+  it("splits printable PDFs on 29 by 29 pegboard boundaries", () => {
+    const large: Pattern = {
+      width: 58,
+      height: 40,
+      colors: [color],
+      cells: Uint16Array.from({ length: 58 * 40 }, () => 1),
+    }
+    const tiles = pdfTiles(large)
+    expect(tiles).toHaveLength(4)
+    expect(
+      tiles.map((tile) => [tile.startX, tile.startY, tile.endX, tile.endY])
+    ).toEqual([
+      [0, 0, 29, 29],
+      [29, 0, 58, 29],
+      [0, 29, 29, 40],
+      [29, 29, 58, 40],
+    ])
+    expect(tiles[2].pattern.cells).toHaveLength(29 * 11)
+  })
+
+  it("creates paginated full-pattern material sheets", () => {
+    const sheets = materialListSvgs(pattern, "小猫图纸")
+    expect(sheets).toHaveLength(1)
+    expect(sheets[0]).toContain("全图材料清单")
+    expect(sheets[0]).toContain("P11 · 粉色")
+    expect(sheets[0]).toContain("3 颗")
   })
 })

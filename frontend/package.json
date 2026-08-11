@@ -19,6 +19,7 @@
     "@hugeicons/react": "^1.1.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "jspdf": "^4.2.1",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
     "onnxruntime-web": "^1.27.0",

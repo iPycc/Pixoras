@@ -32,7 +32,14 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { renderPng, saveCsv, savePng, saveSvg } from "@/lib/export"
+import {
+  renderPng,
+  saveCsv,
+  savePdf,
+  savePng,
+  saveSvg,
+  type PdfPaper,
+} from "@/lib/export"
 import type { BeadShape, ExportOpts, Pattern } from "@/types/pattern"
 
 function initial(shape: BeadShape): ExportOpts {
@@ -63,6 +70,7 @@ interface Props {
 export function ExportDialog({ open, pattern, name, shape, onOpen }: Props) {
   const [opts, setOpts] = React.useState(() => initial(shape))
   const [busy, setBusy] = React.useState<string | null>(null)
+  const [paper, setPaper] = React.useState<PdfPaper>("a4")
   const [previewZoom, setPreviewZoom] = React.useState(80)
   const [preview, setPreview] = React.useState<{
     url: string
@@ -201,13 +209,14 @@ export function ExportDialog({ open, pattern, name, shape, onOpen }: Props) {
     })
   }
 
-  const run = async (format: "png" | "svg" | "csv") => {
+  const run = async (format: "png" | "svg" | "csv" | "pdf") => {
     if (!pattern) return
     setBusy(format)
     try {
       if (format === "png") await savePng(pattern, opts, name)
       if (format === "svg") await saveSvg(pattern, opts, name)
       if (format === "csv") await saveCsv(pattern, name)
+      if (format === "pdf") await savePdf(pattern, opts, name, paper)
       toast.success(`${format.toUpperCase()} 已生成`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "导出失败")
@@ -339,6 +348,26 @@ export function ExportDialog({ open, pattern, name, shape, onOpen }: Props) {
                     onChange={(transparent) => patch({ transparent })}
                   />
                 )}
+
+                <Separator />
+                <Field>
+                  <FieldTitle>PDF 打印纸张</FieldTitle>
+                  <ToggleGroup
+                    value={[paper]}
+                    onValueChange={(items) =>
+                      items[0] && setPaper(items[0] as PdfPaper)
+                    }
+                    variant="outline"
+                    spacing={1}
+                    className="grid w-full grid-cols-2"
+                  >
+                    <ToggleGroupItem value="a4">A4</ToggleGroupItem>
+                    <ToggleGroupItem value="a3">A3</ToggleGroupItem>
+                  </ToggleGroup>
+                  <FieldDescription>
+                    PDF 每页最多放置一块 29 × 29 拼板，并附页码与全图材料清单。
+                  </FieldDescription>
+                </Field>
 
                 <Separator />
                 <Field>
@@ -497,6 +526,21 @@ export function ExportDialog({ open, pattern, name, shape, onOpen }: Props) {
             onClick={() => run("svg")}
           >
             SVG
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!pattern || !!busy}
+            onClick={() => run("pdf")}
+          >
+            {busy === "pdf" && (
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                strokeWidth={2}
+                data-icon="inline-start"
+                className="animate-spin"
+              />
+            )}
+            PDF · {paper.toUpperCase()}
           </Button>
           <Button disabled={!pattern || !!busy} onClick={() => run("png")}>
             {busy === "png" ? (

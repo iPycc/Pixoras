@@ -195,6 +195,108 @@ export async function savePng(
   await save(blob, fileName(name, pattern, "png"))
 }
 
+export type PdfPaper = "a4" | "a3"
+
+export interface PdfTile {
+  pattern: Pattern
+  column: number
+  row: number
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+}
+
+export function pdfTiles(pattern: Pattern, boardSize = 29): PdfTile[] {
+  const columns = Math.ceil(pattern.width / boardSize)
+  const rows = Math.ceil(pattern.height / boardSize)
+  const tiles: PdfTile[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const startX = column * boardSize
+      const startY = row * boardSize
+      const width = Math.min(boardSize, pattern.width - startX)
+      const height = Math.min(boardSize, pattern.height - startY)
+      const cells = new Uint16Array(width * height)
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          cells[y * width + x] =
+            pattern.cells[(startY + y) * pattern.width + startX + x]
+        }
+      }
+      tiles.push({
+        pattern: { width, height, cells, colors: pattern.colors },
+        column,
+        row,
+        startX,
+        startY,
+        endX: startX + width,
+        endY: startY + height,
+      })
+    }
+  }
+  return tiles
+}
+
+export async function savePdf(
+  pattern: Pattern,
+  opts: ExportOpts,
+  name: string,
+  paper: PdfPaper
+) {
+  const { jsPDF } = await import("jspdf")
+  const document = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: paper,
+    compress: true,
+  })
+  const tiles = pdfTiles(pattern)
+  const materialPages = opts.legend ? materialListSvgs(pattern, name) : []
+  const pageCount = tiles.length + materialPages.length
+  const tileOptions: ExportOpts = {
+    ...opts,
+    mode: "report",
+    scale: 2,
+    cellSize: Math.max(20, opts.cellSize),
+    transparent: false,
+  }
+
+  for (let index = 0; index < tiles.length; index++) {
+    if (index > 0) document.addPage(paper, "landscape")
+    const tile = tiles[index]
+    const position = `列 ${tile.startX + 1}–${tile.endX} · 行 ${tile.startY + 1}–${tile.endY}`
+    const tileName = `${name} · 拼板 ${index + 1}/${tiles.length} · ${position}`
+    const rendered = await renderSvgRaster(
+      svgReport(tile.pattern, tileOptions, tileName),
+      {
+        scale: paper === "a3" ? 1.8 : 1.35,
+        maxSide: paper === "a3" ? 2400 : 1800,
+      },
+      "image/jpeg"
+    )
+    await addPdfImage(document, rendered, index + 1, pageCount)
+  }
+
+  for (let index = 0; index < materialPages.length; index++) {
+    document.addPage(paper, "landscape")
+    const rendered = await renderSvgRaster(
+      materialPages[index],
+      {
+        scale: paper === "a3" ? 1.8 : 1.35,
+        maxSide: paper === "a3" ? 2400 : 1800,
+      },
+      "image/jpeg"
+    )
+    await addPdfImage(document, rendered, tiles.length + index + 1, pageCount)
+  }
+
+  await save(
+    document.output("blob"),
+    fileName(`${name}-${paper.toUpperCase()}`, pattern, "pdf")
+  )
+}
+
 export interface RenderPngOptions {
   scale?: number
   maxSide?: number
@@ -212,8 +314,23 @@ export async function renderPng(
   name: string,
   render: RenderPngOptions = {}
 ): Promise<RenderedPng> {
-  await document.fonts?.ready
   const svg = svgReport(pattern, opts, name)
+  return renderSvgPng(svg, render)
+}
+
+async function renderSvgPng(
+  svg: string,
+  render: RenderPngOptions = {}
+): Promise<RenderedPng> {
+  return renderSvgRaster(svg, render, "image/png")
+}
+
+async function renderSvgRaster(
+  svg: string,
+  render: RenderPngOptions,
+  mime: "image/png" | "image/jpeg"
+): Promise<RenderedPng> {
+  await document.fonts?.ready
   const source = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }))
   try {
     const image = new Image()
@@ -237,13 +354,95 @@ export async function renderPng(
     const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
         (value) => (value ? resolve(value) : reject(new Error("PNG 生成失败"))),
-        "image/png"
+        mime,
+        mime === "image/jpeg" ? 0.92 : undefined
       )
     )
     return { blob, width, height }
   } finally {
     URL.revokeObjectURL(source)
   }
+}
+
+async function addPdfImage(
+  document: import("jspdf").jsPDF,
+  rendered: RenderedPng,
+  page: number,
+  pageCount: number
+) {
+  const pageWidth = document.internal.pageSize.getWidth()
+  const pageHeight = document.internal.pageSize.getHeight()
+  const margin = 8
+  const footer = 5
+  const scale = Math.min(
+    (pageWidth - margin * 2) / rendered.width,
+    (pageHeight - margin * 2 - footer) / rendered.height
+  )
+  const width = rendered.width * scale
+  const height = rendered.height * scale
+  const x = (pageWidth - width) / 2
+  const y = margin + (pageHeight - margin * 2 - footer - height) / 2
+  document.addImage(
+    new Uint8Array(await rendered.blob.arrayBuffer()),
+    rendered.blob.type === "image/jpeg" ? "JPEG" : "PNG",
+    x,
+    y,
+    width,
+    height,
+    undefined,
+    "FAST"
+  )
+  document.setFont("helvetica", "normal")
+  document.setFontSize(7)
+  document.setTextColor(110, 104, 101)
+  document.text(`${page} / ${pageCount}`, pageWidth / 2, pageHeight - 4, {
+    align: "center",
+  })
+}
+
+export function materialListSvgs(pattern: Pattern, name: string) {
+  const stats = usage(pattern)
+  const perPage = 30
+  const pageCount = Math.max(1, Math.ceil(stats.length / perPage))
+  return Array.from({ length: pageCount }, (_, page) => {
+    const items = stats.slice(page * perPage, (page + 1) * perPage)
+    const rows = 10
+    const columnWidth = 368
+    const content = items
+      .map((item, index) => {
+        const column = Math.floor(index / rows)
+        const row = index % rows
+        const x = 48 + column * columnWidth
+        const y = 224 + row * 54
+        const labels = uniqueColorLabels(
+          item.color.code,
+          item.color.zh,
+          item.color.en
+        )
+        return `<g>
+          <rect x="${x}" y="${y - 24}" width="30" height="30" rx="5" fill="${item.color.hex}" stroke="#cfc8c4"/>
+          <text x="${x + 42}" y="${y - 10}" class="row">${escapeXml(labels.slice(0, 2).join(" · "))}</text>
+          <text x="${x + 42}" y="${y + 9}" class="subrow">${escapeXml(`${item.color.brand} · ${item.color.series}`)}</text>
+          <text x="${x + columnWidth - 22}" y="${y - 10}" text-anchor="end" class="count">${item.count} 颗</text>
+          <text x="${x + columnWidth - 22}" y="${y + 9}" text-anchor="end" class="subrow">${(item.ratio * 100).toFixed(1)}%</text>
+        </g>`
+      })
+      .join("")
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="pixoras-material-list" width="1200" height="850" viewBox="0 0 1200 850">
+      <style>
+        .pixoras-material-list text{font-family:${FONT};fill:#625a56}.pixoras-material-list .brand-name{font-size:24px;font-weight:700;letter-spacing:-.4px;fill:#241f1d}.pixoras-material-list .brand-name-zh{font-size:16px;font-weight:600;fill:#241f1d}.pixoras-material-list .title{font-size:30px;font-weight:700;fill:#241f1d}.pixoras-material-list .muted{font-size:13px;fill:#7b716d}.pixoras-material-list .row{font-size:13px;font-weight:600;fill:#342f2c}.pixoras-material-list .subrow{font-size:9px;fill:#8b817c}.pixoras-material-list .count{font-size:13px;font-weight:700;fill:#342f2c}.pixoras-material-list .signature{font-size:11px;font-weight:600;fill:#625a56}
+      </style>
+      <rect width="1200" height="850" fill="#fff"/>
+      ${brandHeader(48, 38)}
+      <text x="48" y="130" class="title">${escapeXml(name)} · 全图材料清单</text>
+      <text x="48" y="162" class="muted">${pattern.width} × ${pattern.height} 格 · ${total(pattern)} 颗 · ${stats.length} 种颜色</text>
+      <text x="1152" y="162" text-anchor="end" class="muted">清单 ${page + 1}/${pageCount}</text>
+      <path d="M48 184H1152" stroke="#ded8d4"/>
+      ${content || '<text x="48" y="236" class="muted">当前图纸没有需要统计的豆粒。</text>'}
+      <path d="M48 790H1152" stroke="#ded8d4"/>
+      <g transform="translate(48 808)">${brandMark()}<text x="30" y="15" class="signature">Designed by Pixoras · 屏幕色仅为近似值，请与实物豆色核对</text></g>
+    </svg>`
+  })
 }
 
 export function svgDimensions(svg: string) {
