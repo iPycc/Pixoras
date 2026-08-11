@@ -1,6 +1,6 @@
 import type { BeadColor, PaletteId } from "@/types/bead"
 
-export type Tool = "paint" | "erase" | "pick" | "fill" | "pan"
+export type Tool = "paint" | "erase" | "pick" | "fill" | "pan" | "progress"
 export type BeadShape = "circle" | "square"
 
 export interface Settings {

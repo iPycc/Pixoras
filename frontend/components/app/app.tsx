@@ -26,6 +26,7 @@ import { Toolbar } from "@/features/editor/toolbar"
 import { ExportDialog } from "@/features/export/dialog"
 import { Settings } from "@/features/generate/settings"
 import { EditorTour } from "@/features/onboarding/editor-tour"
+import { MakingBar } from "@/features/progress/bar"
 import { Upload } from "@/features/upload/upload"
 import { deltaE, hexRgb, rgbLab } from "@/lib/color/lab"
 import { getProject, saveProject } from "@/lib/db"
@@ -33,6 +34,7 @@ import { shortId } from "@/lib/id"
 import { imageSize, readImage } from "@/lib/image"
 import { inventoryColors, readInventory } from "@/lib/inventory"
 import { replace } from "@/lib/pattern/edit"
+import { sanitizeCompleted, toggleCompleted } from "@/lib/progress"
 import { segmentSubject, type SubjectMask } from "@/lib/subject"
 import { runWorker } from "@/lib/worker"
 import type { BeadColor } from "@/types/bead"
@@ -73,6 +75,7 @@ export function App({ id }: { id: string }) {
   const [zoom, setZoom] = React.useState(100)
   const [past, setPast] = React.useState<Pattern[]>([])
   const [future, setFuture] = React.useState<Pattern[]>([])
+  const [completed, setCompleted] = React.useState<number[]>([])
   const [projectId, setProjectId] = React.useState("")
   const activeProjectId = React.useRef("")
   const [createdAt, setCreatedAt] = React.useState(0)
@@ -88,6 +91,7 @@ export function App({ id }: { id: string }) {
   )
   const patternWidth = pattern?.width
   const patternHeight = pattern?.height
+  const completedSet = React.useMemo(() => new Set(completed), [completed])
 
   React.useEffect(() => {
     if (!patternWidth || window.matchMedia("(min-width: 1024px)").matches)
@@ -131,6 +135,7 @@ export function App({ id }: { id: string }) {
         }
         const next = await runWorker(image, colors, values)
         setPattern(next)
+        setCompleted([])
         setUpdatedAt(Date.now())
         setPast([])
         setFuture([])
@@ -162,6 +167,7 @@ export function App({ id }: { id: string }) {
           })
       : null
     setPattern(next)
+    setCompleted(sanitizeCompleted(project.completed ?? [], next))
     setFile(restoredSource)
     setSourceName(project.sourceName)
     setName(project.name)
@@ -312,6 +318,7 @@ export function App({ id }: { id: string }) {
       width: generated.width,
       height: generated.height,
       cells: Array.from(generated.cells),
+      completed: [],
       colors: generated.colors,
       shape,
       settings: nextSettings,
@@ -340,6 +347,7 @@ export function App({ id }: { id: string }) {
     setPast((items) => [...items.slice(-99), pattern])
     setFuture([])
     setPattern(next)
+    setCompleted((items) => sanitizeCompleted(items, next))
     setUpdatedAt(Date.now())
   }
 
@@ -349,6 +357,7 @@ export function App({ id }: { id: string }) {
     setPast((items) => items.slice(0, -1))
     setFuture((items) => [pattern, ...items].slice(0, 100))
     setPattern(previous)
+    setCompleted((items) => sanitizeCompleted(items, previous))
     setUpdatedAt(Date.now())
   }
 
@@ -358,6 +367,7 @@ export function App({ id }: { id: string }) {
     setFuture((items) => items.slice(1))
     setPast((items) => [...items.slice(-99), pattern])
     setPattern(next)
+    setCompleted((items) => sanitizeCompleted(items, next))
     setUpdatedAt(Date.now())
   }
 
@@ -369,6 +379,7 @@ export function App({ id }: { id: string }) {
     setName("未命名图纸")
     setSettings(defaults)
     setPattern(null)
+    setCompleted([])
     setPast([])
     setFuture([])
     activeProjectId.current = ""
@@ -405,6 +416,7 @@ export function App({ id }: { id: string }) {
     setName(options.name)
     setSettings(nextSettings)
     setPattern(next)
+    setCompleted([])
     setPast([])
     setFuture([])
     setSelected(1)
@@ -421,6 +433,7 @@ export function App({ id }: { id: string }) {
         width: next.width,
         height: next.height,
         cells: Array.from(next.cells),
+        completed: [],
         colors: next.colors,
         shape,
         settings: nextSettings,
@@ -454,6 +467,7 @@ export function App({ id }: { id: string }) {
       width: pattern.width,
       height: pattern.height,
       cells: Array.from(pattern.cells),
+      completed,
       colors: pattern.colors,
       shape,
       settings,
@@ -462,6 +476,7 @@ export function App({ id }: { id: string }) {
     }
   }, [
     pattern,
+    completed,
     projectId,
     name,
     sourceName,
@@ -493,6 +508,11 @@ export function App({ id }: { id: string }) {
     const next = { ...pattern, colors: [...pattern.colors, color] }
     commit(next)
     setSelected(next.colors.length)
+  }
+
+  const updateCompleted = (next: number[]) => {
+    setCompleted(next)
+    setUpdatedAt(Date.now())
   }
 
   const activeHex = pattern?.colors[selected - 1]?.hex ?? "#D94E78"
@@ -575,14 +595,26 @@ export function App({ id }: { id: string }) {
                 onUndo={undo}
                 onRedo={redo}
               />
+              {tool === "progress" && (
+                <MakingBar
+                  pattern={pattern}
+                  selected={selected}
+                  completed={completed}
+                  onChange={updateCompleted}
+                />
+              )}
               <Canvas
                 pattern={pattern}
                 tool={tool}
                 shape={shape}
                 color={selected}
                 zoom={zoom}
-                highlight={highlight}
+                highlight={tool === "progress" ? selected : highlight}
+                completed={completedSet}
                 onChange={commit}
+                onComplete={(index) =>
+                  updateCompleted(toggleCompleted(completed, pattern, index))
+                }
                 onZoom={setZoom}
                 onPick={(color) => {
                   setSelected(color)

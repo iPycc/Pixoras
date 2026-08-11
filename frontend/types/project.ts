@@ -10,6 +10,7 @@ export interface Project {
   width: number
   height: number
   cells: number[]
+  completed?: number[]
   colors: BeadColor[]
   shape?: BeadShape
   settings: Settings

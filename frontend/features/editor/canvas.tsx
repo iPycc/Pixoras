@@ -13,7 +13,9 @@ interface Props {
   color: number
   zoom: number
   highlight: number | null
+  completed?: ReadonlySet<number>
   onChange: (pattern: Pattern) => void
+  onComplete?: (index: number) => void
   onPick: (color: number) => void
   onZoom: (zoom: number) => void
 }
@@ -25,7 +27,9 @@ export function Canvas({
   color,
   zoom,
   highlight,
+  completed,
   onChange,
+  onComplete,
   onPick,
   onZoom,
 }: Props) {
@@ -71,12 +75,17 @@ export function Canvas({
 
     for (let y = 0; y < pattern.height; y++) {
       for (let x = 0; x < pattern.width; x++) {
-        const value = pattern.cells[y * pattern.width + x]
+        const index = y * pattern.width + x
+        const value = pattern.cells[index]
         if (!value) continue
         const bead = pattern.colors[value - 1]
         const centerX = pad + x * cell + cell / 2
         const centerY = pad + y * cell + cell / 2
-        context.globalAlpha = highlight && highlight !== value ? 0.13 : 1
+        context.globalAlpha = completed?.has(index)
+          ? 0.14
+          : highlight && highlight !== value
+            ? 0.13
+            : 1
         context.fillStyle = bead.hex
         if (shape === "circle") {
           context.beginPath()
@@ -151,7 +160,7 @@ export function Canvas({
         context.fillText(String(y + 1), 23, pad + (y + 0.7) * cell)
       }
     }
-  }, [pattern, cell, highlight, shape])
+  }, [pattern, cell, highlight, shape, completed])
 
   const indexAt = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -177,6 +186,10 @@ export function Canvas({
     }
     if (tool === "fill") {
       onChange(fill(pattern, index, color))
+      drawing.current = false
+    }
+    if (tool === "progress") {
+      if (pattern.cells[index]) onComplete?.(index)
       drawing.current = false
     }
   }
@@ -206,7 +219,14 @@ export function Canvas({
       <canvas
         ref={ref}
         className="m-auto touch-none select-none"
-        style={{ cursor: tool === "pan" ? "grab" : "crosshair" }}
+        style={{
+          cursor:
+            tool === "pan"
+              ? "grab"
+              : tool === "progress"
+                ? "pointer"
+                : "crosshair",
+        }}
         aria-label={`${pattern.width} × ${pattern.height} 拼豆图纸，共 ${total(pattern)} 颗豆`}
         onWheel={(event) => {
           event.preventDefault()

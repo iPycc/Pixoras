@@ -9,6 +9,7 @@ import {
   PaintBrush01Icon,
   RedoIcon,
   SquareIcon,
+  TaskDone01Icon,
   UndoIcon,
   ZoomInAreaIcon,
   ZoomOutAreaIcon,
@@ -31,6 +32,7 @@ const tools = [
   { value: "pick", label: "吸管", icon: ColorPickerIcon },
   { value: "fill", label: "填充", icon: PaintBoardIcon },
   { value: "pan", label: "移动", icon: Cursor01Icon },
+  { value: "progress", label: "制作进度", icon: TaskDone01Icon },
 ] as const
 
 interface Props {
